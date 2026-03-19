@@ -155,7 +155,7 @@ DEFAULT_PERSISTENT_WORKERS: bool = sys.platform != "win32"
 # ---------------------------------------------------------------------------
 
 DEFAULT_EMA_DECAY: float = 0.0
-DEFAULT_EMA_WARMUP_STEPS: int = 2000
+DEFAULT_EMA_START_STEP: int = 2000
 DEFAULT_VAL_SPLIT: float = 0.0
 DEFAULT_ADAPTIVE_TIMESTEP_RATIO: float = 0.0
 DEFAULT_WARMUP_START_FACTOR: float = 0.1
@@ -262,7 +262,7 @@ TRAINING_DEFAULTS: dict = {
     "persistent_workers": DEFAULT_PERSISTENT_WORKERS,
     # All the Levers
     "ema_decay": DEFAULT_EMA_DECAY,
-    "ema_warmup_steps": DEFAULT_EMA_WARMUP_STEPS,
+    "ema_start_step": DEFAULT_EMA_START_STEP,
     "val_split": DEFAULT_VAL_SPLIT,
     "adaptive_timestep_ratio": DEFAULT_ADAPTIVE_TIMESTEP_RATIO,
     "warmup_start_factor": DEFAULT_WARMUP_START_FACTOR,
@@ -360,7 +360,7 @@ GUI_FIELD_MAP: dict = {
     "cosine_eta_min_ratio": "full-cosine-eta-min",
     "cosine_restarts_count": "full-cosine-restarts",
     "ema_decay": "full-ema-decay",
-    "ema_warmup_steps": "full-ema-warmup-steps",
+    "ema_start_step": "full-ema-start-step",
     "val_split": "full-val-split",
     "timestep_mode": "full-timestep-mode",
     "adaptive_timestep_ratio": "full-adaptive-timestep",
