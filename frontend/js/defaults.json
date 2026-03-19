@@ -36,7 +36,7 @@
   "full-shift":               "3.0",
   "full-inference-steps":     "8",
   "full-cfg-dropout":         "0.15",
-  "full-loss-fn":             "huber",
+  "full-loss-fn":             "mse",
   "full-huber-delta":         "1.0",
   "full-loss-weighting":      "flow_snr",
   "full-snr-gamma":           "5.0",

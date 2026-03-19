@@ -433,7 +433,7 @@ const WorkspaceConfig = (() => {
       timestep_mode: _v("full-timestep-mode", "continuous"),
       cfg_ratio: _v("full-cfg-dropout", "0.15"), loss_weighting: _v("full-loss-weighting", "flow_snr"),
       snr_gamma: _v("full-snr-gamma", "5.0"),
-      loss_fn: _v("full-loss-fn", "huber"), huber_delta: _v("full-huber-delta", "1.0"),
+      loss_fn: _v("full-loss-fn", "mse"), huber_delta: _v("full-huber-delta", "1.0"),
       channel_balance: _c("full-channel-balance"), vae_channel_prior: _c("full-vae-channel-prior"),
       latent_noise: _v("full-latent-noise", "0.02"), t_bias: _v("full-t-bias", "0.5"),
       legacy_loss: _c("full-legacy-loss"),

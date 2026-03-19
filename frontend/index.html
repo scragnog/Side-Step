@@ -847,12 +847,12 @@
                   <div class="form-group" id="loss-fn-group">
                     <label class="form-group__label">Loss function <span class="help-icon" data-help="help-full-loss-fn">?</span></label>
                     <div id="help-full-loss-fn" class="help-panel">
-                      <p><strong>huber:</strong> Smooth L1 loss — transitions from quadratic (MSE) to linear for large errors. Prevents outlier channels from dominating gradients. Recommended default.</p>
-                      <p><strong>mse:</strong> Classic mean squared error. Legacy behavior.</p>
+                      <p><strong>mse:</strong> Mean squared error. Mathematically correct for flow matching — the model must learn the conditional expectation of the vector field, which MSE guarantees. Recommended default.</p>
+                      <p><strong>huber:</strong> Smooth L1 loss. Caps gradient magnitude for large errors. Can cause clipped/waveshaped output because it under-penalizes extreme flow vectors that are mathematically necessary.</p>
                     </div>
                     <select class="select" id="full-loss-fn">
-                      <option value="huber" selected>huber</option>
-                      <option value="mse">mse</option>
+                      <option value="mse" selected>mse</option>
+                      <option value="huber">huber</option>
                     </select>
                   </div>
                   <div class="form-group" id="huber-delta-group">

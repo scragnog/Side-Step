@@ -299,8 +299,8 @@ class TrainingConfigV2(TrainingConfig):
     snr_gamma: float = 5.0
     """Gamma clamp for flow_snr/min_snr weighting."""
 
-    loss_fn: str = "huber"
-    """Loss function: 'huber' (smooth L1, outlier-robust) or 'mse'."""
+    loss_fn: str = "mse"
+    """Loss function: 'mse' (correct for flow matching) or 'huber' (smooth L1)."""
 
     huber_delta: float = 1.0
     """Huber loss delta threshold. Only used when loss_fn='huber'."""

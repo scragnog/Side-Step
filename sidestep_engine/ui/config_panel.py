@@ -64,7 +64,7 @@ _DEFAULTS: Dict[str, Any] = {
     "cfg_ratio": 0.15,
     "loss_weighting": "flow_snr",
     "snr_gamma": 5.0,
-    "loss_fn": "huber",
+    "loss_fn": "mse",
     "huber_delta": 1.0,
     "channel_balance": True,
     "vae_channel_prior": True,

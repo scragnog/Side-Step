@@ -161,9 +161,9 @@ def step_cfg(a: dict) -> None:
     section("Corrected Training Settings (press Enter for defaults)")
     a["cfg_ratio"] = ask("CFG dropout ratio", default=a.get("cfg_ratio", 0.15), type_fn=float, allow_back=True)
     a["loss_fn"] = ask(
-        "Loss function (huber = outlier-robust, mse = classic)",
-        default=a.get("loss_fn", "huber"),
-        choices=["huber", "mse"], allow_back=True,
+        "Loss function (mse = correct for flow matching, huber = smooth L1)",
+        default=a.get("loss_fn", "mse"),
+        choices=["mse", "huber"], allow_back=True,
     )
     if a["loss_fn"] == "huber":
         a["huber_delta"] = ask("Huber delta", default=a.get("huber_delta", 1.0), type_fn=float, allow_back=True)
