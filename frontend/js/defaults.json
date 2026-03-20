@@ -42,6 +42,7 @@
   "full-snr-gamma":           "5.0",
   "full-t-bias":              "0.5",
   "full-channel-balance":     true,
+  "full-dynamic-channel-balance": false,
   "full-vae-channel-prior":   true,
   "full-latent-noise":        "0.02",
   "full-legacy-loss":         false,

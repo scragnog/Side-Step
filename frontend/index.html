@@ -906,6 +906,12 @@
                       <p>Incorporates per-channel L2 norms from the VAE decoder into channel weights. Focuses training on channels that most affect what you hear.</p>
                     </div>
                   </div>
+                  <div class="form-group" id="dynamic-channel-balance-group">
+                    <label class="form-group__label"><input type="checkbox" id="full-dynamic-channel-balance"> Dynamic channel rebalancing <span class="help-icon" data-help="help-full-dyn-ch">?</span></label>
+                    <div id="help-full-dyn-ch" class="help-panel">
+                      <p>Dynamically adjusts channel weights based on a running average of per-channel loss. Blends 50/50 with the static VAE prior so channels that are struggling get more gradient. Prevents easy channels from dominating training.</p>
+                    </div>
+                  </div>
                   <div class="form-group" id="latent-noise-group">
                     <label class="form-group__label">Latent noise scale <span class="help-icon" data-help="help-full-lat-noise">?</span></label>
                     <div id="help-full-lat-noise" class="help-panel">

@@ -84,6 +84,7 @@ def _flush_accumulated(
         if ema is not None:
             tb.log_scalar("ema/active", 1.0 if ema._active else 0.0, global_step)
             tb.log_scalar("ema/step_count", float(ema._step_count), global_step)
+            tb.log_scalar("ema/effective_decay", ema.effective_decay, global_step)
 
         updates.append(TrainingUpdate(
             step=global_step, loss=avg_loss,

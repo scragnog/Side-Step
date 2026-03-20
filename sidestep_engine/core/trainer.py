@@ -829,6 +829,7 @@ class FixedLoRATrainer:
                         if _ema is not None:
                             tb.log_scalar("ema/active", 1.0 if _ema._active else 0.0, global_step)
                             tb.log_scalar("ema/step_count", float(_ema._step_count), global_step)
+                            tb.log_scalar("ema/effective_decay", _ema.effective_decay, global_step)
 
                         yield TrainingUpdate(
                             step=global_step, loss=avg_loss,

@@ -199,6 +199,7 @@ class FixedLoRAModule(nn.Module):
         self._loss_fn = training_config.loss_fn
         self._huber_delta = training_config.huber_delta
         self._channel_balance = training_config.channel_balance
+        self._dynamic_channel_balance = training_config.dynamic_channel_balance
         self._vae_channel_prior = training_config.vae_channel_prior
         self._latent_noise_scale = training_config.latent_noise
         self._t_bias = training_config.t_bias
@@ -214,6 +215,9 @@ class FixedLoRAModule(nn.Module):
         # Per-channel weights and std (set by trainer from channel_stats.json)
         self._channel_weights: Optional[torch.Tensor] = None  # [64]
         self._channel_std: Optional[torch.Tensor] = None       # [64]
+
+        # Running EMA of per-channel loss for dynamic rebalancing (lazy init)
+        self._ema_ch_loss: Optional[torch.Tensor] = None  # [64]
 
         # Adaptive timestep sampler (set by trainer when enabled, None = off)
         self._adaptive_sampler = None
@@ -492,6 +496,19 @@ class FixedLoRAModule(nn.Module):
                 cw = self._channel_weights.to(
                     device=per_element.device, dtype=per_element.dtype,
                 )
+                # Dynamic rebalancing: blend static VAE prior with live loss EMA
+                if self._dynamic_channel_balance:
+                    with torch.no_grad():
+                        _pch = per_element.detach().mean(dim=(0, 1))  # [64]
+                        if self._ema_ch_loss is None:
+                            self._ema_ch_loss = _pch.clone()
+                        else:
+                            self._ema_ch_loss = self._ema_ch_loss.to(
+                                device=_pch.device, dtype=_pch.dtype,
+                            )
+                            self._ema_ch_loss.lerp_(_pch, 0.01)
+                        _dyn_w = self._ema_ch_loss / self._ema_ch_loss.mean().clamp(min=1e-8)
+                        cw = 0.5 * cw + 0.5 * _dyn_w
                 per_element = per_element * cw  # [B, T, 64] * [64]
 
             # Attention-mask-weighted loss (skip zero-padded positions)
@@ -515,6 +532,7 @@ class FixedLoRAModule(nn.Module):
                 t_f32 = t.float().clamp(min=1e-4, max=1.0 - 1e-4)
                 w = ((1.0 - t_f32) ** self._t_bias) / (t_f32 * (1.0 - t_f32))
                 w = w.clamp(max=self._snr_gamma)
+                _w_pre_norm = w.clone()  # snapshot before normalization for telemetry
                 w = w / w.mean().clamp(min=1e-8)  # normalize to preserve scale
                 diffusion_loss = (w.to(per_sample_loss_raw.dtype) * per_sample_loss_raw).mean()
             elif self._loss_weighting == "min_snr":
@@ -538,8 +556,12 @@ class FixedLoRAModule(nn.Module):
                 sm["fidelity/raw_loss"] = float(per_sample_loss_raw.mean())
                 sm["fidelity/weighted_loss"] = float(diffusion_loss)
                 if self._loss_weighting == "flow_snr":
-                    sm["fidelity/snr_weight_mean"] = float(w.mean())
-                    sm["fidelity/snr_weight_max"] = float(w.max())
+                    sm["fidelity/snr_weight_mean"] = float(_w_pre_norm.mean())
+                    sm["fidelity/snr_weight_max"] = float(_w_pre_norm.max())
+                    if _w_pre_norm.numel() > 1:
+                        sm["fidelity/snr_weight_spread"] = float(
+                            _w_pre_norm.max() / _w_pre_norm.min().clamp(min=1e-8)
+                        )
                 elif self._loss_weighting == "min_snr":
                     sm["fidelity/snr_weight_mean"] = float(weights.mean())
                     sm["fidelity/snr_weight_max"] = float(weights.max())
@@ -550,6 +572,10 @@ class FixedLoRAModule(nn.Module):
                     sm["fidelity/ch_loss_ratio"] = float(
                         per_ch.max() / per_ch.min().clamp(min=1e-8)
                     )
+                    if self._dynamic_channel_balance and self._ema_ch_loss is not None:
+                        sm["fidelity/ch_dynamic_blend_range"] = float(
+                            cw.max() / cw.min().clamp(min=1e-8)
+                        )
 
         # fp32 for stable backward
         diffusion_loss = diffusion_loss.float()

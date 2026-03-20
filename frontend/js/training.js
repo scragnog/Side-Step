@@ -204,9 +204,12 @@ const Training = (() => {
     'fidelity/ch_loss_ratio':   { label: 'Ch Loss Ratio',     color: 'hsl(330,60%,55%)' },
     'fidelity/ch_loss_max':     { label: 'Ch Loss Max',       color: 'hsl(0,60%,55%)' },
     'fidelity/ch_loss_min':     { label: 'Ch Loss Min',       color: 'hsl(120,50%,50%)' },
+    'fidelity/snr_weight_spread':       { label: 'SNR Weight Spread',  color: 'hsl(15,70%,55%)' },
+    'fidelity/ch_dynamic_blend_range':  { label: 'Dynamic Blend Range', color: 'hsl(290,55%,55%)' },
     // EMA tracking
-    'ema/active':      { label: 'EMA Active',     color: 'hsl(180,60%,55%)' },
-    'ema/step_count':  { label: 'EMA Step Count', color: 'hsl(210,55%,55%)' },
+    'ema/active':           { label: 'EMA Active',     color: 'hsl(180,60%,55%)' },
+    'ema/step_count':       { label: 'EMA Step Count', color: 'hsl(210,55%,55%)' },
+    'ema/effective_decay':  { label: 'EMA Decay',      color: 'hsl(195,60%,50%)' },
   };
   // Auto-color palette for unknown tags (HSL hues)
   const _AUTO_COLORS = [

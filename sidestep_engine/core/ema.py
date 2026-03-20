@@ -99,6 +99,11 @@ class AdapterEMA:
             param.data.copy_(backup)
         self._backup = []
 
+    @property
+    def effective_decay(self) -> float:
+        """Return 0.0 when inactive, target decay when active."""
+        return self.decay if self._active else 0.0
+
     # ------------------------------------------------------------------
     # Checkpoint support
     # ------------------------------------------------------------------

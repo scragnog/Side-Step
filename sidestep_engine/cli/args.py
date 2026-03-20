@@ -61,6 +61,7 @@ from sidestep_engine.training_defaults import (
     DEFAULT_LOSS_FN,
     DEFAULT_HUBER_DELTA,
     DEFAULT_CHANNEL_BALANCE,
+    DEFAULT_DYNAMIC_CHANNEL_BALANCE,
     DEFAULT_VAE_CHANNEL_PRIOR,
     DEFAULT_LATENT_NOISE,
     DEFAULT_T_BIAS,
@@ -576,6 +577,9 @@ def _add_train_args(parser: argparse.ArgumentParser) -> None:
     g.add_argument("--channel-balance", action=argparse.BooleanOptionalAction, default=DEFAULT_CHANNEL_BALANCE,
                    dest="channel_balance",
                    help=f"Per-channel fidelity balancing (default: {DEFAULT_CHANNEL_BALANCE})")
+    g.add_argument("--dynamic-channel-balance", action=argparse.BooleanOptionalAction, default=DEFAULT_DYNAMIC_CHANNEL_BALANCE,
+                   dest="dynamic_channel_balance",
+                   help=f"Dynamically rebalance channel weights from running loss (default: {DEFAULT_DYNAMIC_CHANNEL_BALANCE})")
     g.add_argument("--vae-channel-prior", action=argparse.BooleanOptionalAction, default=DEFAULT_VAE_CHANNEL_PRIOR,
                    dest="vae_channel_prior",
                    help=f"Use VAE decoder channel importance in channel weights (default: {DEFAULT_VAE_CHANNEL_PRIOR})")

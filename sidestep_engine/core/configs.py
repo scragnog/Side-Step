@@ -308,6 +308,10 @@ class TrainingConfigV2(TrainingConfig):
     channel_balance: bool = True
     """Per-channel fidelity balancing using inverse-std weights."""
 
+    dynamic_channel_balance: bool = False
+    """Dynamically rebalance channel weights based on running per-channel loss.
+    Blends 50/50 with the static VAE prior so hard channels get more gradient."""
+
     vae_channel_prior: bool = True
     """Incorporate VAE decoder channel importance into channel weights."""
 

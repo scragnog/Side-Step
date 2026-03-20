@@ -296,6 +296,8 @@ const WorkspaceBehaviors = (() => {
     const huberGroup = $("huber-delta-group");
     const tBiasGroup = $("t-bias-group");
     const chBalGroup = $("channel-balance-group");
+    const dynChBalGroup = $("dynamic-channel-balance-group");
+    const chBalCb = $("full-channel-balance");
     const vaePriorGroup = $("vae-channel-prior-group");
     const latNoiseGroup = $("latent-noise-group");
     const legacyCb = $("full-legacy-loss");
@@ -304,6 +306,7 @@ const WorkspaceBehaviors = (() => {
       const isLegacy = legacyCb && legacyCb.checked;
       const lossWt = lossWtSel ? lossWtSel.value : "flow_snr";
       const lossFn = lossFnSel ? lossFnSel.value : "huber";
+      const chBalOn = chBalCb && chBalCb.checked;
 
       // SNR gamma visible when flow_snr or min_snr
       if (snrGroup) snrGroup.style.display = (!isLegacy && (lossWt === "flow_snr" || lossWt === "min_snr")) ? "" : "none";
@@ -313,6 +316,7 @@ const WorkspaceBehaviors = (() => {
       if (tBiasGroup) tBiasGroup.style.display = (!isLegacy && lossWt === "flow_snr") ? "" : "none";
       // Channel/VAE/noise hidden when legacy
       if (chBalGroup) chBalGroup.style.display = isLegacy ? "none" : "";
+      if (dynChBalGroup) dynChBalGroup.style.display = (!isLegacy && chBalOn) ? "" : "none";
       if (vaePriorGroup) vaePriorGroup.style.display = isLegacy ? "none" : "";
       if (latNoiseGroup) latNoiseGroup.style.display = isLegacy ? "none" : "";
       // Loss fn/weighting selectors hidden when legacy
@@ -323,6 +327,7 @@ const WorkspaceBehaviors = (() => {
     if (lossFnSel) lossFnSel.addEventListener("change", updateFidelityVisibility);
     if (lossWtSel) lossWtSel.addEventListener("change", updateFidelityVisibility);
     if (legacyCb) legacyCb.addEventListener("change", updateFidelityVisibility);
+    if (chBalCb) chBalCb.addEventListener("change", updateFidelityVisibility);
     updateFidelityVisibility();
   }
 
