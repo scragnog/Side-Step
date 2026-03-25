@@ -14,6 +14,7 @@ Subcommands:
     dataset          Build dataset.json from audio + sidecar metadata
     captions         Generate AI captions + fetch lyrics for sidecars
     tags             Bulk sidecar tag operations
+    convert-sidecars Convert JSON sidecars or dataset.json to TXT sidecars
     settings         View or modify persistent settings
     history          List past training runs
     gui              Launch the web GUI
@@ -121,7 +122,8 @@ def _apply_deprecation_shim() -> None:
 
 _KNOWN_SUBCOMMANDS = {
     "train", "preprocess", "analyze", "audio-analyze", "dataset",
-    "captions", "tags", "settings", "history", "export", "gui",
+    "captions", "tags", "convert-sidecars", "settings", "history",
+    "export", "gui",
 }
 
 # Subcommands that need only stdlib / lightweight deps (no torch/PEFT/Lightning).
