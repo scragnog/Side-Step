@@ -198,6 +198,7 @@ const WorkspaceLab = (() => {
       normalize: normMethod, trigger_tag: $("pp-trigger-tag")?.value, tag_position: $("pp-tag-position")?.value,
       target_db: normMethod === "peak" ? parseFloat($("pp-peak-target")?.value) || -1.0 : -1.0,
       target_lufs: normMethod === "lufs" ? parseFloat($("pp-lufs-target")?.value) || -14.0 : -14.0,
+      genre_ratio: parseInt($("pp-genre-ratio")?.value) || 0,
     };
 
     const prog = $("pp-progress-panel"); if (prog) prog.style.display = "block";
