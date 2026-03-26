@@ -124,6 +124,12 @@ _KNOWN_SUBCOMMANDS = {
     "captions", "tags", "settings", "history", "export", "gui",
 }
 
+# Subcommands that need only stdlib / lightweight deps (no torch/PEFT/Lightning).
+# check_compatibility() is skipped for these to avoid loading ~2-3 GB of RAM.
+_LIGHTWEIGHT_SUBCOMMANDS = {
+    "convert-sidecars", "dataset", "tags", "settings", "history",
+}
+
 
 def _has_subcommand() -> bool:
     """Check if sys.argv contains a recognized subcommand or --help."""
@@ -131,6 +137,11 @@ def _has_subcommand() -> bool:
     if "--help" in args or "-h" in args:
         return True
     return bool(_KNOWN_SUBCOMMANDS & set(args))
+
+
+def _is_lightweight_subcommand() -> bool:
+    """True when the CLI targets a subcommand that needs no heavy imports."""
+    return bool(_LIGHTWEIGHT_SUBCOMMANDS & set(sys.argv[1:]))
 
 
 def _cleanup_gpu() -> None:
@@ -303,11 +314,14 @@ def main() -> int:
     _apply_deprecation_shim()
 
     # -- Compatibility check (non-fatal) ------------------------------------
-    try:
-        from sidestep_engine._compat import check_compatibility
-        check_compatibility()
-    except Exception:
-        pass  # never let the compat check itself crash the CLI
+    # Skip for lightweight subcommands to avoid importing torch/PEFT/Lightning
+    # (~2-3 GB RAM) when all we need is json + pathlib.
+    if not _is_lightweight_subcommand():
+        try:
+            from sidestep_engine._compat import check_compatibility
+            check_compatibility()
+        except Exception:
+            pass  # never let the compat check itself crash the CLI
 
     # -- GUI subcommand (explicit or translated from --gui) -----------------
     if len(sys.argv) > 1 and sys.argv[1] == "gui":
