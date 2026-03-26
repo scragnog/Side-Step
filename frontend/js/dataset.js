@@ -403,6 +403,9 @@ const Dataset = (() => {
     _renderHierarchy(tbody);
     if (typeof initShiftClickTable === 'function') initShiftClickTable('dataset-tbody', { requireModifier: true });
     document.dispatchEvent(new CustomEvent('sidestep:dataset-scanned', { detail: { fileCount: _files.length } }));
+    // Enable/disable Preprocess All button based on folder count
+    const ppAllBtn = $('btn-preprocess-all');
+    if (ppAllBtn) ppAllBtn.disabled = _folders.length <= 1; // 1 = root only
   }
 
   async function openEditor(file) {
@@ -495,6 +498,8 @@ const Dataset = (() => {
     }
   }
 
+  function getFolders() { return _folders; }
+
   /* ---- Bulk selection toolbar ---- */
   function _updateBulkToolbar() {
     const toolbar = $('dataset-bulk-toolbar'), countEl = $('dataset-bulk-count'), warnEl = $('dataset-bulk-warn');
@@ -561,14 +566,22 @@ const Dataset = (() => {
       if (!paths.length) { if (typeof showToast === 'function') showToast('Select at least one folder', 'warn'); return; }
       const root = _scanRoot || _canonicalAudioPath();
       if (!root) { if (typeof showToast === 'function') showToast('No audio directory configured', 'warn'); return; }
-      const fullPaths = paths.map(p => p === '.' ? root : _joinPath(root, p));
-      if (fullPaths.length === 1) {
+      // Build items with trigger tags from folder data
+      const items = paths.map(p => {
+        const fullPath = p === '.' ? root : _joinPath(root, p);
+        const folder = _folders.find(f => (f.path || '.') === p);
+        return { path: fullPath, triggerTag: folder?.common_trigger || '' };
+      });
+      if (items.length === 1) {
         _openPreprocessForFolder(paths[0]);
+        // Also set trigger tag if available
+        const triggerField = $('pp-trigger-tag');
+        if (triggerField && items[0].triggerTag) triggerField.value = items[0].triggerTag;
       } else {
         _setActiveLabPanel('preprocess');
         if (typeof WorkspaceLab !== 'undefined' && WorkspaceLab.queuePreprocess) {
-          WorkspaceLab.queuePreprocess(fullPaths);
-          showToast(fullPaths.length + ' folders queued for preprocessing', 'ok');
+          WorkspaceLab.queuePreprocess(items);
+          showToast(items.length + ' folders queued for preprocessing', 'ok');
         } else {
           _openPreprocessForFolder(paths[0]);
         }
@@ -621,6 +634,32 @@ const Dataset = (() => {
         }
       } catch (e) {
         showToast('Mix failed: ' + e.message, 'error');
+      }
+    });
+  }
+
+  /* ---- Preprocess All button ---- */
+  function _initPreprocessAll() {
+    $('btn-preprocess-all')?.addEventListener('click', () => {
+      const root = _scanRoot || _canonicalAudioPath();
+      if (!root) { if (typeof showToast === 'function') showToast('No audio directory configured', 'warn'); return; }
+      // Collect all non-root folders with their trigger tags
+      const items = _folders
+        .filter(f => (f.path || '.') !== '.')
+        .map(f => ({
+          path: _joinPath(root, f.path),
+          triggerTag: f.common_trigger || '',
+        }));
+      if (!items.length) {
+        // Only root folder — preprocess the root itself
+        items.push({ path: root, triggerTag: _folders[0]?.common_trigger || '' });
+      }
+      _setActiveLabPanel('preprocess');
+      if (typeof WorkspaceLab !== 'undefined' && WorkspaceLab.queuePreprocess) {
+        WorkspaceLab.queuePreprocess(items);
+        showToast(items.length + ' folder' + (items.length > 1 ? 's' : '') + ' queued for preprocessing', 'ok');
+      } else {
+        _openPreprocessForFolder('.');
       }
     });
   }
@@ -1384,6 +1423,7 @@ const Dataset = (() => {
     document.addEventListener('sidestep:settings-saved', () => refreshFromSettings(true));
 
     _initBulkActions();
+    _initPreprocessAll();
     _apInit();
     refreshFromSettings();
   }
@@ -1395,6 +1435,6 @@ const Dataset = (() => {
     await scan(path);
   }
 
-  return { init, scan, openEditor, closeEditor, refreshFromSettings, getSelectedAudioPaths, hasSelection, bootBeep: _apBootBeep, reopen: _apReopen };
+  return { init, scan, openEditor, closeEditor, refreshFromSettings, getSelectedAudioPaths, hasSelection, getFolders, bootBeep: _apBootBeep, reopen: _apReopen };
 
 })();

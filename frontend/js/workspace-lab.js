@@ -155,7 +155,8 @@ const WorkspaceLab = (() => {
         : item.status === "running" ? '<span class="u-text-primary">[...]</span>'
         : '<span class="u-text-muted">[--]</span>';
       const name = _pathBasename(item.audioDir);
-      return `<div style="padding:2px 0;">${icon} ${_e(name)} <span class="u-text-muted">${_e(item.status)}</span></div>`;
+      const tag = item.triggerTag ? ` <span class="u-text-muted">[${_e(item.triggerTag)}]</span>` : '';
+      return `<div style="padding:2px 0;">${icon} ${_e(name)}${tag} <span class="u-text-muted">${_e(item.status)}</span></div>`;
     }).join("");
   }
 
@@ -186,6 +187,9 @@ const WorkspaceLab = (() => {
     const ppOut = $("pp-output-dir");
     if (ppAudio) { ppAudio.value = next.audioDir; ppAudio.dispatchEvent(new Event("change")); }
     if (ppOut && ppOut.readOnly) ppOut.value = next.outputDir;
+    // Auto-populate trigger tag from per-item data
+    const triggerField = $("pp-trigger-tag");
+    if (triggerField && next.triggerTag != null) triggerField.value = next.triggerTag;
 
     const normMethod = $("pp-normalize")?.value || "none";
     const config = {
@@ -236,10 +240,14 @@ const WorkspaceLab = (() => {
 
   function queuePreprocess(folderPaths) {
     const tensorsDir = $("settings-tensors-dir")?.value || Defaults.get("settings-tensors-dir") || "preprocessed_tensors";
-    folderPaths.forEach(audioDir => {
+    folderPaths.forEach(item => {
+      const isObj = typeof item === 'object' && item !== null;
+      const audioDir = isObj ? item.path : item;
+      const triggerTag = isObj ? (item.triggerTag || '') : '';
       _ppQueue.push({
         audioDir,
         outputDir: _joinPath(tensorsDir, _pathBasename(audioDir) || "tensors"),
+        triggerTag,
         status: "pending",
       });
     });
