@@ -72,6 +72,12 @@ const Dataset = (() => {
     if (ppOut && ppOut.readOnly) {
       ppOut.value = _joinPath($('settings-tensors-dir')?.value || './preprocessed_tensors', _pathBasename(target) || 'tensors');
     }
+    // Auto-fill trigger tag from folder name if checkbox is on
+    const autoTag = document.getElementById('dataset-auto-folder-trigger')?.checked;
+    if (autoTag && folderPath !== '.') {
+      const triggerField = $('pp-trigger-tag');
+      if (triggerField) triggerField.value = folderPath.split('/').pop() || '';
+    }
     if (typeof showToast === 'function') showToast('Preprocess path set from Audio Library folder', 'info');
   }
 
@@ -153,12 +159,18 @@ const Dataset = (() => {
     });
   }
 
+  function _isAutoFolderTrigger() {
+    return !!document.getElementById('dataset-auto-folder-trigger')?.checked;
+  }
+
   function _renderHierarchy(tbody) {
     tbody.innerHTML = '';
     if (_files.length === 0) {
       tbody.innerHTML = '<tr><td colspan="7" class="data-table-empty">No audio files found in the current Audio directory.</td></tr>';
       return;
     }
+
+    const autoTag = _isAutoFolderTrigger();
 
     const map = new Map();
     _folders.forEach((f) => {
@@ -220,13 +232,17 @@ const Dataset = (() => {
       folder.files.sort((a, b) => String(a.name).localeCompare(String(b.name)));
     });
 
-    const appendFile = (f, depth, ancestorPaths) => {
+    const appendFile = (f, depth, ancestorPaths, parentFolderName) => {
       const idx = _files.findIndex((x) => x.path === f.path);
       const sidecarStatus = f.has_sidecar
         ? '<span class="status--ok">[ok] exists</span>'
         : '<span class="status--warn">missing</span>';
       const editLabel = f.has_sidecar ? 'Edit' : 'Create';
       const coverUrl = API.audioCoverUrl(f.path);
+      // Determine trigger tag display: auto-folder wins if checkbox is on
+      const displayTrigger = autoTag && parentFolderName
+        ? `<span class="u-text-secondary">${_esc(parentFolderName)}</span>`
+        : (f.trigger ? _esc(f.trigger) : '<span class="u-text-muted">--</span>');
       const trFile = document.createElement('tr');
       trFile.className = 'dataset-file-row';
       trFile.dataset.apPath = f.path;
@@ -245,7 +261,7 @@ const Dataset = (() => {
         <td>${sidecarStatus}</td>
         <td>${f.genre ? _esc(f.genre) : '<span class="u-text-muted">--</span>'}</td>
         <td>${f.tags ? _esc(f.tags) : '<span class="u-text-muted">--</span>'}</td>
-        <td>${f.trigger ? _esc(f.trigger) : '<span class="u-text-muted">--</span>'}</td>
+        <td>${displayTrigger}</td>
         <td><button class="btn btn--sm sidecar-edit-btn" data-idx="${idx}">${editLabel}</button></td>
       `;
       // Store cover URL for lazy loading (don't fetch until row is visible)
@@ -297,7 +313,7 @@ const Dataset = (() => {
           <td><span class="u-text-muted">${sidecars}/${count} sidecars</span></td>
           <td><span class="u-text-muted">--</span></td>
           <td><span class="u-text-muted">--</span></td>
-          <td>${folder.common_trigger ? `<span class="u-text-secondary">${_esc(folder.common_trigger)}</span>` : '<span class="u-text-muted">--</span>'}</td>
+          <td>${(autoTag ? `<span class="u-text-secondary">${_esc(folder.name || folderPath)}</span>` : (folder.common_trigger ? `<span class="u-text-secondary">${_esc(folder.common_trigger)}</span>` : '<span class="u-text-muted">--</span>'))}</td>
           <td><button class="btn btn--sm" data-action="preprocess-folder" data-folder="${_esc(folderPath)}">Preprocess</button></td>
         `;
         tbody.appendChild(tr);
@@ -307,7 +323,8 @@ const Dataset = (() => {
       const childAncestors = folderPath === '.' ? [] : [...ancestorPaths, folderPath];
 
       folder.children.forEach((child) => appendFolder(child, childAncestors));
-      folder.files.forEach((f) => appendFile(f, folderPath === '.' ? 0 : depth + 1, childAncestors));
+      const folderNameForFiles = folderPath === '.' ? '' : (folder.name || folderPath.split('/').pop() || '');
+      folder.files.forEach((f) => appendFile(f, folderPath === '.' ? 0 : depth + 1, childAncestors, folderNameForFiles));
     };
 
     appendFolder(map.get('.'), []);
@@ -567,10 +584,15 @@ const Dataset = (() => {
       const root = _scanRoot || _canonicalAudioPath();
       if (!root) { if (typeof showToast === 'function') showToast('No audio directory configured', 'warn'); return; }
       // Build items with trigger tags from folder data
+      const autoTag = document.getElementById('dataset-auto-folder-trigger')?.checked;
       const items = paths.map(p => {
         const fullPath = p === '.' ? root : _joinPath(root, p);
         const folder = _folders.find(f => (f.path || '.') === p);
-        return { path: fullPath, triggerTag: folder?.common_trigger || '' };
+        let tConfig = folder?.common_trigger || '';
+        if (autoTag && p !== '.') {
+          tConfig = p.split('/').pop() || tConfig;
+        }
+        return { path: fullPath, triggerTag: tConfig };
       });
       if (items.length === 1) {
         _openPreprocessForFolder(paths[0]);
@@ -644,12 +666,19 @@ const Dataset = (() => {
       const root = _scanRoot || _canonicalAudioPath();
       if (!root) { if (typeof showToast === 'function') showToast('No audio directory configured', 'warn'); return; }
       // Collect all non-root folders with their trigger tags
+      const autoTag = document.getElementById('dataset-auto-folder-trigger')?.checked;
       const items = _folders
         .filter(f => (f.path || '.') !== '.')
-        .map(f => ({
-          path: _joinPath(root, f.path),
-          triggerTag: f.common_trigger || '',
-        }));
+        .map(f => {
+          let tConfig = f.common_trigger || '';
+          if (autoTag) {
+            tConfig = (f.path || '').split('/').pop() || tConfig;
+          }
+          return {
+            path: _joinPath(root, f.path),
+            triggerTag: tConfig,
+          };
+        });
       if (!items.length) {
         // Only root folder — preprocess the root itself
         items.push({ path: root, triggerTag: _folders[0]?.common_trigger || '' });
@@ -1425,6 +1454,13 @@ const Dataset = (() => {
     _initBulkActions();
     _initPreprocessAll();
     _apInit();
+
+    // Re-render the table when the auto-folder-trigger checkbox toggles
+    document.getElementById('dataset-auto-folder-trigger')?.addEventListener('change', () => {
+      const tbody = $('dataset-tbody');
+      if (tbody && _files.length > 0) _renderHierarchy(tbody);
+    });
+
     refreshFromSettings();
   }
 
