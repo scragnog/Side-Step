@@ -147,6 +147,11 @@ const API = (() => {
   async function stopTraining() { return _post('/api/train/stop', {}); }
   async function pauseTraining() { return _post('/api/train/pause', {}); }
 
+  // ---- Persistent Training Queue ----------------------------------------
+
+  async function loadTrainingQueue() { return _get('/api/train/queue'); }
+  async function saveTrainingQueue(data) { return _post('/api/train/queue', data); }
+
   // ---- Dataset Scanning -------------------------------------------------
 
   async function scanTensorsDir(tensorsDir) { return _get('/api/datasets?tensors_dir=' + encodeURIComponent(tensorsDir || '')); }
@@ -393,6 +398,8 @@ const API = (() => {
     startTraining,
     stopTraining,
     pauseTraining,
+    loadTrainingQueue,
+    saveTrainingQueue,
     browseDir,
     scanTensorsDir,
     scanAudioFolder,

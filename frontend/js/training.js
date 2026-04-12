@@ -6,8 +6,57 @@ const Training = (() => {
   let _ws = null, _gpuWs = null;
 
   // ---- Training Queue ---------------------------------------------------
-  let _queue = [];  // { id, config, status: 'pending'|'running'|'done'|'failed'|'stopped' }
+  let _queue = [];  // { id, config, status: 'pending'|'running'|'done'|'failed'|'stopped'|'interrupted' }
   let _queueIdCounter = 0;
+
+  // ---- Persistent queue state (survives browser/server restarts) --------
+  let _saveQueueTimer = null;
+  function _saveQueueState() {
+    // Debounce: batch rapid mutations into a single write
+    if (_saveQueueTimer) clearTimeout(_saveQueueTimer);
+    _saveQueueTimer = setTimeout(() => {
+      _saveQueueTimer = null;
+      const persistable = _queue
+        .filter(e => e.status === 'pending' || e.status === 'paused' || e.status === 'running' || e.status === 'interrupted')
+        .map(e => ({ id: e.id, config: e.config, status: e.status }));
+      API.saveTrainingQueue({ entries: persistable, counter: _queueIdCounter }).catch(err => {
+        console.warn('[Training] Failed to persist queue state:', err);
+      });
+    }, 300);
+  }
+
+  async function _loadQueueState() {
+    try {
+      const saved = await API.loadTrainingQueue();
+      if (!saved || !saved.entries || saved.entries.length === 0) return;
+      // Reclassify 'running' entries as 'interrupted' — the server restarted
+      const restored = saved.entries.map(e => ({
+        ...e,
+        status: e.status === 'running' ? 'interrupted' : e.status,
+      }));
+      // Merge: don't clobber any entries already in memory (live session)
+      const existingIds = new Set(_queue.map(e => e.id));
+      for (const entry of restored) {
+        if (!existingIds.has(entry.id)) {
+          _queue.push(entry);
+        }
+      }
+      _queueIdCounter = Math.max(_queueIdCounter, saved.counter || 0);
+      _renderQueue();
+      _syncStartButtons();
+      const count = restored.length;
+      if (count > 0) {
+        console.log('[Training] Restored', count, 'queue entries from persistent state');
+        const pausedOrInterrupted = restored.filter(e => e.status === 'paused' || e.status === 'interrupted').length;
+        const pending = restored.filter(e => e.status === 'pending').length;
+        if (pausedOrInterrupted > 0 && typeof showToast === 'function') {
+          showToast('Restored queue: ' + pausedOrInterrupted + ' paused, ' + pending + ' pending', 'info');
+        }
+      }
+    } catch (err) {
+      console.warn('[Training] Could not load saved queue state:', err);
+    }
+  }
   let _step = 0, _epoch = 0, _maxEpochs = 100, _stepsPerEpoch = 0, _stepInEpoch = 0;
   let _resumeStartEpoch = 0, _resumeStartStep = 0;  // non-zero when resuming from checkpoint
   let _loss = 0, _bestLoss = Infinity, _bestEpoch = 0, _lr = 0;
@@ -1553,6 +1602,7 @@ const Training = (() => {
       if (wasRunning) _showCompletionState('paused');
       _renderQueue();
       _syncStartButtons();
+      _saveQueueState();
       _stopRequested = false;
       return;
     }
@@ -1581,6 +1631,7 @@ const Training = (() => {
       _renderQueue();
       _syncStartButtons();
     }
+    _saveQueueState();
     _stopRequested = false;
   }
 
@@ -1598,6 +1649,7 @@ const Training = (() => {
     _queue.push(entry);
     _renderQueue();
     _syncStartButtons();
+    _saveQueueState();
     if (!_running) {
       _runNext();
     } else {
@@ -1606,16 +1658,18 @@ const Training = (() => {
   }
 
   function _runNext() {
-    // Prune finished entries to prevent unbounded growth (keep paused)
-    _queue = _queue.filter(e => e.status === 'pending' || e.status === 'running' || e.status === 'paused');
+    // Prune finished entries to prevent unbounded growth (keep paused/interrupted)
+    _queue = _queue.filter(e => e.status === 'pending' || e.status === 'running' || e.status === 'paused' || e.status === 'interrupted');
     const next = _queue.find(e => e.status === 'pending');
     if (!next) {
       _syncStartButtons();
       _renderQueue();
+      _saveQueueState();
       return;
     }
     next.status = 'running';
     _renderQueue();
+    _saveQueueState();
     start(next.config);
   }
 
@@ -1623,12 +1677,14 @@ const Training = (() => {
     _queue = _queue.filter(e => e.id !== id || e.status === 'running');
     _renderQueue();
     _syncStartButtons();
+    _saveQueueState();
   }
 
   function clearQueue() {
     _queue = _queue.filter(e => e.status === 'running' || e.status === 'done' || e.status === 'failed' || e.status === 'stopped');
     _renderQueue();
     _syncStartButtons();
+    _saveQueueState();
     if (typeof showToast === 'function') showToast('Queue cleared', 'info');
   }
 
@@ -1641,7 +1697,8 @@ const Training = (() => {
     if (!panel || !list) return;
     const running = _queue.filter(e => e.status === 'running');
     const pending = _queue.filter(e => e.status === 'pending');
-    if (running.length === 0 && pending.length === 0) { panel.style.display = 'none'; return; }
+    const pausedOrInterrupted = _queue.filter(e => e.status === 'paused' || e.status === 'interrupted');
+    if (running.length === 0 && pending.length === 0 && pausedOrInterrupted.length === 0) { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
     const rows = [];
     running.forEach(entry => {
@@ -1653,6 +1710,20 @@ const Training = (() => {
         (ds ? '<span class="u-text-muted" style="font-size:var(--font-size-xs);">' + ds + '</span>' : '') +
         '<span class="u-text-muted" style="margin-left:auto;font-size:var(--font-size-xs);">running</span>' +
         '</div>');
+    });
+    pausedOrInterrupted.forEach(entry => {
+      const name = _esc(entry.config.run_name || 'training');
+      const ds = _esc(_pathBasename(entry.config.dataset_dir || ''));
+      const label = entry.status === 'interrupted' ? 'interrupted' : 'paused';
+      rows.push('<div style="display:flex;align-items:center;gap:var(--space-sm);padding:3px 0;">' +
+        '<span style="color:var(--warning);">[||]</span> ' +
+        '<span>' + name + '</span>' +
+        (ds ? '<span class="u-text-muted" style="font-size:var(--font-size-xs);">' + ds + '</span>' : '') +
+        '<span style="margin-left:auto;display:flex;gap:var(--space-xs);align-items:center;">' +
+        '<span class="u-text-muted" style="font-size:var(--font-size-xs);">' + label + '</span>' +
+        '<button class="btn btn--sm btn--success" data-queue-resume="' + entry.id + '">\u25B6</button>' +
+        '<button class="btn btn--sm" data-queue-remove="' + entry.id + '">[x]</button>' +
+        '</span></div>');
     });
     pending.forEach(entry => {
       const name = _esc(entry.config.run_name || 'training');
@@ -1667,6 +1738,9 @@ const Training = (() => {
     list.innerHTML = rows.join('');
     list.querySelectorAll('[data-queue-remove]').forEach(btn => {
       btn.addEventListener('click', () => removeFromQueue(btn.dataset.queueRemove));
+    });
+    list.querySelectorAll('[data-queue-resume]').forEach(btn => {
+      btn.addEventListener('click', () => resumePaused());
     });
   }
 
@@ -1847,17 +1921,22 @@ const Training = (() => {
   }
 
   function resumePaused() {
-    const pausedEntry = _queue.find(e => e.status === 'paused');
+    // Find paused or interrupted entry (interrupted = was running when server died)
+    const pausedEntry = _queue.find(e => e.status === 'paused' || e.status === 'interrupted');
     if (!pausedEntry) {
       if (typeof showToast === 'function') showToast('No paused run to resume', 'warn');
       return;
     }
     // Point resume_from to the paused checkpoint
     const outputDir = pausedEntry.config.output_dir || '';
-    pausedEntry.config.resume_from = outputDir + '/paused';
+    if (pausedEntry.status === 'paused') {
+      pausedEntry.config.resume_from = outputDir + '/paused';
+    }
+    // For interrupted runs, resume_from stays as-is (user resumes from last checkpoint)
     pausedEntry.status = 'pending';
     _renderQueue();
     _syncStartButtons();
+    _saveQueueState();
     if (typeof showToast === 'function') {
       showToast('Resuming: ' + (pausedEntry.config.run_name || 'training'), 'info');
     }
@@ -2139,6 +2218,8 @@ const Training = (() => {
     $('btn-clear-training-queue')?.addEventListener('click', () => clearQueue());
     $('btn-stop-all')?.addEventListener('click', () => stopAll());
     $('btn-pause')?.addEventListener('click', () => pause());
+    // Restore persistent queue state (survives browser close / server restart / reboot)
+    _loadQueueState();
   }
 
   return { init, start, enqueue, stop, stopAll, pause, resumePaused, isRunning, setViewRange, zoomReset, setSmoothing, setChartMode, getChartView, getChartMode, getChartOpts, getDataAtIndex, getSnap, setSnap, collapseExpanded, demoMiniCharts, demoLive, getQueue, queueLength, removeFromQueue, clearQueue };
