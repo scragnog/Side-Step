@@ -126,9 +126,11 @@ _MUTEX_LABELS = {
 # - audio_analyze + captions: analysis uses local GPU, remote captions use APIs
 # - training + captions: training uses GPU, remote captions use APIs
 #   (local caption providers will compete for VRAM but OOM detection handles it)
+# - training + audio_analyze: training is a subprocess, analysis is a thread
 _COMPATIBLE_KINDS: frozenset = frozenset({
     frozenset({"audio_analyze", "captions"}),
     frozenset({"training", "captions"}),
+    frozenset({"training", "audio_analyze"}),
 })
 
 
