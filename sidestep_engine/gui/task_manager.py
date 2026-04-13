@@ -122,6 +122,12 @@ _MUTEX_LABELS = {
     "audio_analyze": "Audio analysis",
 }
 
+# Task pairs that may run concurrently (audio analysis uses local GPU,
+# remote caption providers hit external APIs — no resource contention).
+_COMPATIBLE_KINDS: frozenset = frozenset({
+    frozenset({"audio_analyze", "captions"}),
+})
+
 
 class TaskManager:
     """Manages subprocess and thread lifecycles for long-running operations."""
@@ -145,19 +151,46 @@ class TaskManager:
                     return t.kind
         return None
 
+    def active_operations(self) -> set:
+        """Return the set of all currently running operation kinds."""
+        kinds: set = set()
+        with self._lock:
+            if self._training_task and self._training_task.status == "running":
+                kinds.add("training")
+            for t in self._tasks.values():
+                if t.status == "running":
+                    kinds.add(t.kind)
+        return kinds
+
     def _check_mutex(self, requested_kind: str) -> Optional[Dict[str, Any]]:
-        """Return an error dict if another operation blocks *requested_kind*."""
-        active = self.active_operation()
-        if active is None:
+        """Return an error dict if another operation blocks *requested_kind*.
+
+        Allows concurrent execution for task pairs listed in _COMPATIBLE_KINDS
+        (e.g. audio_analyze + captions).  All other combinations remain
+        mutually exclusive.
+        """
+        running = self.active_operations()
+        if not running:
             return None
-        if active == requested_kind == "training":
-            return {"error": "Training already running"}
-        active_label = _MUTEX_LABELS.get(active, active)
-        requested_label = _MUTEX_LABELS.get(requested_kind, requested_kind)
-        return {
-            "error": f"Cannot start {requested_label} while {active_label} is running. "
-                     f"Stop the current operation first.",
-        }
+
+        # Block duplicate of the same kind
+        if requested_kind in running:
+            label = _MUTEX_LABELS.get(requested_kind, requested_kind)
+            return {"error": f"{label} already running"}
+
+        # Check each running kind against the compatibility matrix
+        for active_kind in running:
+            pair = frozenset({active_kind, requested_kind})
+            if pair not in _COMPATIBLE_KINDS:
+                active_label = _MUTEX_LABELS.get(active_kind, active_kind)
+                requested_label = _MUTEX_LABELS.get(requested_kind, requested_kind)
+                return {
+                    "error": f"Cannot start {requested_label} while "
+                             f"{active_label} is running. "
+                             f"Stop the current operation first.",
+                }
+
+        return None  # all running tasks are compatible
 
     def _cleanup_old_tasks(self) -> None:
         """Remove finished tasks older than TTL, keeping at most _MAX_COMPLETED_TASKS."""
