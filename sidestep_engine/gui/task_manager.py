@@ -122,10 +122,13 @@ _MUTEX_LABELS = {
     "audio_analyze": "Audio analysis",
 }
 
-# Task pairs that may run concurrently (audio analysis uses local GPU,
-# remote caption providers hit external APIs — no resource contention).
+# Task pairs that may run concurrently.
+# - audio_analyze + captions: analysis uses local GPU, remote captions use APIs
+# - training + captions: training uses GPU, remote captions use APIs
+#   (local caption providers will compete for VRAM but OOM detection handles it)
 _COMPATIBLE_KINDS: frozenset = frozenset({
     frozenset({"audio_analyze", "captions"}),
+    frozenset({"training", "captions"}),
 })
 
 
