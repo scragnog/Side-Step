@@ -191,6 +191,7 @@ const API = (() => {
 
   async function runAICaptions(config) { return _post('/api/captions/start', config); }
   async function runAudioAnalyze(config) { return _post('/api/audio-analyze/start', config); }
+  async function runPipeline(config) { return _post('/api/pipeline/start', config); }
   async function analyzeOneFile(path, opts) {
     const o = opts || {};
     return _post('/api/audio-analyze/one', {
@@ -410,6 +411,7 @@ const API = (() => {
     validateApiKey,
     runAICaptions,
     runAudioAnalyze,
+    runPipeline,
     analyzeOneFile,
     bulkWriteTriggerTag,
     buildCLICommand,

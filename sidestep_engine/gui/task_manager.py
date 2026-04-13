@@ -840,6 +840,199 @@ class TaskManager:
         task.thread.start()
         return {"ok": True, "task_id": task_id}
 
+    # ---- Reusable builder methods for caption/lyrics/metadata callables ----
+    # Shared between start_captions() and start_pipeline().
+
+    @staticmethod
+    def _build_caption_fn_from_config(
+        config: Dict[str, Any], task: "Task",
+    ) -> Optional[Callable[..., Optional[str]]]:
+        """Build a caption-generation callable from *config*.
+
+        Returns None if the provider doesn't generate captions.
+        """
+        provider = str(config.get("provider") or "skip").lower()
+        if provider in ("skip", "lyrics_only", "none", "music_flamingo"):
+            return None
+
+        generation_keys = (
+            ("caption_temperature", "temperature"),
+            ("caption_max_tokens", "max_tokens"),
+            ("caption_top_p", "top_p"),
+            ("caption_presence_penalty", "presence_penalty"),
+            ("caption_frequency_penalty", "frequency_penalty"),
+            ("caption_repetition_penalty", "repetition_penalty"),
+        )
+        generation_kwargs = {
+            target: config.get(source)
+            for source, target in generation_keys
+            if config.get(source) is not None
+        }
+
+        if provider == "gemini":
+            from sidestep_engine.data.caption_provider_gemini import (
+                generate_caption as _generate,
+            )
+            key = str(config.get("gemini_key") or config.get("api_key") or "").strip()
+            if not key or _is_masked_secret(key):
+                from sidestep_engine.settings import get_gemini_api_key
+                key = get_gemini_api_key() or ""
+            model = config.get("gemini_model") or config.get("model")
+            if not key:
+                return None
+            use_google_search = bool(config.get("gemini_google_search"))
+
+            def _run_caption(title, artist, excerpt, audio_path):
+                kwargs: Dict[str, Any] = {
+                    "audio_path": audio_path,
+                    "lyrics_excerpt": excerpt,
+                    "google_search": use_google_search,
+                    **generation_kwargs,
+                }
+                if model:
+                    kwargs["model"] = model
+                return _generate(title, artist, key, **kwargs)
+            return _run_caption
+
+        if provider == "openai":
+            from sidestep_engine.data.caption_provider_openai import (
+                generate_caption as _generate,
+            )
+            key = str(config.get("openai_key") or config.get("api_key") or "").strip()
+            if not key or _is_masked_secret(key):
+                from sidestep_engine.settings import get_openai_api_key
+                key = get_openai_api_key() or ""
+            model = config.get("openai_model") or config.get("model")
+            base_url = config.get("openai_base") or config.get("base_url")
+            if not key:
+                return None
+
+            def _run_caption(title, artist, excerpt, audio_path):
+                kwargs: Dict[str, Any] = {
+                    "audio_path": audio_path,
+                    "lyrics_excerpt": excerpt,
+                    **generation_kwargs,
+                }
+                if model:
+                    kwargs["model"] = model
+                if base_url:
+                    kwargs["base_url"] = base_url
+                return _generate(title, artist, key, **kwargs)
+            return _run_caption
+
+        if provider in ("local_8-10gb", "local_12gb", "local_16gb"):
+            from sidestep_engine.data.caption_provider_local import (
+                generate_caption as _generate_local,
+            )
+            tier = {"local_8-10gb": "8-10gb", "local_12gb": "12gb"}.get(provider, "16gb")
+            allow_cpu_offload = bool(config.get("caption_local_cpu_offload"))
+            _cancel = task.cancel_flag
+
+            def _run_caption(title, artist, excerpt, audio_path):
+                return _generate_local(
+                    title, artist,
+                    audio_path=audio_path,
+                    lyrics_excerpt=excerpt,
+                    tier=tier,
+                    max_new_tokens=generation_kwargs.get("max_tokens"),
+                    temperature=generation_kwargs.get("temperature"),
+                    top_p=generation_kwargs.get("top_p"),
+                    repetition_penalty=generation_kwargs.get("repetition_penalty"),
+                    allow_cpu_offload=allow_cpu_offload,
+                    stop_event=_cancel,
+                )
+            return _run_caption
+
+        raise ValueError(f"Unknown caption provider: {provider}")
+
+    @staticmethod
+    def _build_metadata_fn_from_config(
+        config: Dict[str, Any],
+    ) -> Optional[Callable[[Path], Optional[Dict[str, str]]]]:
+        """Build a metadata-fetch callable from *config*."""
+        provider = str(config.get("metadata_provider") or config.get("provider") or "skip").lower()
+        if provider != "music_flamingo":
+            return None
+        server_url = str(config.get("music_flamingo_url") or "").strip()
+        hf_token = config.get("hf_token")
+        if _is_masked_secret(hf_token) or not str(hf_token or "").strip():
+            from sidestep_engine.settings import get_hf_token
+            hf_token = get_hf_token()
+        hf_token = str(hf_token or "").strip()
+        if not server_url:
+            return None
+        from sidestep_engine.data.metadata_provider_music_flamingo import (
+            fetch_music_flamingo_metadata as _generate_metadata,
+        )
+
+        def _run_metadata(audio_path):
+            return _generate_metadata(
+                str(audio_path), server_url=server_url,
+                hf_token=hf_token or None,
+            )
+        return _run_metadata
+
+    @staticmethod
+    def _build_lyrics_fn_from_config(
+        config: Dict[str, Any],
+    ) -> Optional[Callable[[str, str, Path], Optional[str]]]:
+        """Build a lyrics-fetch callable from *config*."""
+        lyrics_provider = str(config.get("lyrics_provider") or "").strip().lower()
+        provider = str(config.get("provider") or "").strip().lower()
+        if not lyrics_provider:
+            lyrics_provider = "genius" if provider == "lyrics_only" else "none"
+
+        if lyrics_provider == "none":
+            return None
+
+        if lyrics_provider == "genius":
+            token = config.get("genius_token")
+            if _is_masked_secret(token) or not str(token or "").strip():
+                from sidestep_engine.settings import get_genius_api_token
+                token = get_genius_api_token()
+            token = str(token or "").strip()
+            if not token:
+                return None
+            from sidestep_engine.data.lyrics_provider_genius import fetch_lyrics
+
+            def _run_lyrics(artist, title, _audio_path):
+                return fetch_lyrics(artist, title, token)
+            return _run_lyrics
+
+        if lyrics_provider == "transcriber_server":
+            server_url = str(config.get("transcriber_server_url") or "").strip()
+            if not server_url:
+                return None
+            from sidestep_engine.data.lyrics_provider_server import fetch_lyrics_from_server
+
+            def _run_lyrics(artist, title, audio_path):
+                return fetch_lyrics_from_server(
+                    str(audio_path), server_url=server_url,
+                    artist=artist, title=title,
+                )
+            return _run_lyrics
+
+        if lyrics_provider == "music_flamingo":
+            server_url = str(config.get("music_flamingo_url") or "").strip()
+            hf_token = config.get("hf_token")
+            if _is_masked_secret(hf_token) or not str(hf_token or "").strip():
+                from sidestep_engine.settings import get_hf_token
+                hf_token = get_hf_token()
+            hf_token = str(hf_token or "").strip()
+            if not server_url:
+                return None
+            from sidestep_engine.data.lyrics_provider_music_flamingo import fetch_lyrics_from_music_flamingo
+
+            def _run_lyrics(artist, title, audio_path):
+                return fetch_lyrics_from_music_flamingo(
+                    str(audio_path), server_url=server_url,
+                    artist=artist, title=title,
+                    hf_token=hf_token or None,
+                )
+            return _run_lyrics
+
+        raise ValueError(f"Unknown lyrics provider: {lyrics_provider}")
+
     def start_captions(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Start AI caption generation in a background thread."""
         blocked = self._check_mutex("captions")
@@ -1289,6 +1482,309 @@ class TaskManager:
             self._tasks[task_id] = task
         task.thread.start()
         return {"ok": True, "task_id": task_id}
+
+    def start_pipeline(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Run audio analysis → AI caption generation as a pipeline.
+
+        Each file is analysed first, then pushed to a queue for caption
+        generation.  While the caption thread processes file N, the analysis
+        thread has already moved on to file N+1.  This ensures that
+        analysis-written sidecar fields (bpm, key, signature) are present
+        *before* the caption step runs — so the caption provider can skip
+        those fields and focus on generating the AI caption, lyrics, tags.
+
+        Returns both task IDs so the frontend can stream progress for each.
+        """
+        # ---- Mutex checks (both must pass) ----
+        blocked = self._check_mutex("audio_analyze")
+        if blocked:
+            return blocked
+        # After analysis is conceptually "started", check captions too
+        blocked_cap = self._check_mutex("captions")
+        if blocked_cap:
+            return blocked_cap
+        self._cleanup_old_tasks()
+
+        analyze_config = config.get("analyze", {})
+        caption_config = config.get("captions", {})
+
+        # ---- Resolve audio files (shared list) ----
+        from sidestep_engine.data.preprocess_discovery import AUDIO_EXTENSIONS
+
+        explicit_paths = config.get("audio_files") or []
+        dataset_dir = str(
+            config.get("dataset_dir")
+            or analyze_config.get("dataset_dir")
+            or caption_config.get("dataset_dir")
+            or ""
+        ).strip()
+
+        if explicit_paths:
+            audio_files = [Path(p) for p in explicit_paths if Path(p).is_file()]
+        elif dataset_dir:
+            base = Path(dataset_dir)
+            if not base.is_dir():
+                return {"error": f"Not a directory: {dataset_dir}"}
+            audio_files = sorted(
+                p for p in base.rglob("*")
+                if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS
+            )
+        else:
+            return {"error": "No audio directory or files specified"}
+
+        total = len(audio_files)
+        if total == 0:
+            return {"error": "No audio files found"}
+
+        # ---- Create two Task objects with a SHARED cancel flag ----
+        shared_cancel = threading.Event()
+
+        analyze_task_id = _new_task_id("audio_analyze")
+        caption_task_id = _new_task_id("captions")
+
+        analyze_task = Task(task_id=analyze_task_id, kind="audio_analyze",
+                            cancel_flag=shared_cancel)
+        caption_task = Task(task_id=caption_task_id, kind="captions",
+                            cancel_flag=shared_cancel)
+
+        # Pipeline queue: analysis pushes (index, Path), captions consumes.
+        # None sentinel = analysis is done.
+        pipeline_q: queue.Queue = queue.Queue(maxsize=total + 1)
+
+        # ---- Analysis thread (producer) ----
+        def _run_analyze():
+            try:
+                from sidestep_engine.analysis.audio_analysis import analyze_audio
+                from sidestep_engine.data.sidecar_io import (
+                    merge_fields, read_sidecar, sidecar_path_for, write_sidecar,
+                )
+
+                device = str(analyze_config.get("device") or "auto")
+                policy = str(analyze_config.get("policy") or "fill_missing")
+                mode = str(analyze_config.get("mode") or "mid")
+                n_chunks = int(analyze_config.get("chunks") or 5)
+                stats = {"written": 0, "skipped": 0, "failed": 0}
+
+                for i, af in enumerate(audio_files, 1):
+                    if shared_cancel.is_set():
+                        analyze_task.status = "cancelled"
+                        _push_event(analyze_task, "cancelled",
+                                    result={**stats, "total": total})
+                        return
+
+                    try:
+                        result = analyze_audio(
+                            af, device=device, mode=mode, n_chunks=n_chunks,
+                        )
+                        sidecar_fields = {
+                            k: v for k, v in result.items() if k != "confidence"
+                        }
+                        if not sidecar_fields:
+                            stats["skipped"] += 1
+                            _push(analyze_task, i, total,
+                                  f"{af.name}: skipped (no results)", **stats)
+                            # Still push to caption queue — captions will
+                            # handle fill_missing logic itself
+                            pipeline_q.put((i, af))
+                            continue
+
+                        sc_path = sidecar_path_for(af)
+                        existing = read_sidecar(sc_path)
+
+                        if policy == "fill_missing":
+                            if all(
+                                existing.get(k, "").strip()
+                                for k in ("bpm", "key", "signature")
+                            ):
+                                stats["skipped"] += 1
+                                _push(analyze_task, i, total,
+                                      f"{af.name}: skipped (already populated)",
+                                      **stats)
+                                pipeline_q.put((i, af))
+                                continue
+
+                        merged = merge_fields(
+                            existing, sidecar_fields, policy=policy,
+                        )
+                        write_sidecar(sc_path, merged)
+                        stats["written"] += 1
+                        parts = ", ".join(
+                            f"{k}={v}" for k, v in sidecar_fields.items()
+                        )
+                        _push(analyze_task, i, total,
+                              f"{af.name}: written ({parts})", **stats)
+
+                    except Exception as exc:
+                        stats["failed"] += 1
+                        _push(analyze_task, i, total,
+                              f"{af.name}: failed ({exc})", **stats)
+                        logger.exception(
+                            "Pipeline: audio analysis failed for %s", af,
+                        )
+
+                    # Push file to caption queue regardless of analysis outcome
+                    pipeline_q.put((i, af))
+
+                if shared_cancel.is_set():
+                    analyze_task.status = "cancelled"
+                    _push_event(analyze_task, "cancelled",
+                                result={**stats, "total": total})
+                    return
+
+                analyze_task.status = "done"
+                _push_event(analyze_task, "complete",
+                            result={**stats, "total": total})
+            except Exception as exc:
+                logger.exception("Pipeline: analysis thread failed")
+                analyze_task.status = "failed"
+                _push_event(analyze_task, "fail", str(exc))
+            finally:
+                # Sentinel: tell caption thread that analysis is complete
+                pipeline_q.put(None)
+
+        # ---- Caption thread (consumer) ----
+        def _run_captions():
+            try:
+                from sidestep_engine.data.enrich_song import enrich_one
+
+                # Build caption/lyrics/metadata callables from caption_config
+                # (reuse the same builder logic from start_captions)
+                _cfg = {**caption_config}
+                # Ensure dataset_dir is available for enrich_one
+                if not _cfg.get("dataset_dir"):
+                    _cfg["dataset_dir"] = dataset_dir
+
+                caption_fn = self._build_caption_fn_from_config(
+                    _cfg, caption_task,
+                )
+                metadata_fn = self._build_metadata_fn_from_config(_cfg)
+                lyrics_fn = self._build_lyrics_fn_from_config(_cfg)
+                default_artist = str(_cfg.get("default_artist") or "")
+                policy = str(_cfg.get("overwrite") or "fill_missing")
+
+                stats = {"written": 0, "skipped": 0, "failed": 0}
+                processed = 0
+
+                while True:
+                    if shared_cancel.is_set():
+                        caption_task.status = "cancelled"
+                        _push_event(caption_task, "cancelled",
+                                    result={**stats, "total": total})
+                        return
+
+                    # Block until analysis pushes a file (or sentinel)
+                    try:
+                        item = pipeline_q.get(timeout=1.0)
+                    except queue.Empty:
+                        continue
+
+                    if item is None:
+                        # Sentinel: analysis is done, no more files
+                        break
+
+                    _idx, af = item
+                    processed += 1
+
+                    if shared_cancel.is_set():
+                        caption_task.status = "cancelled"
+                        _push_event(caption_task, "cancelled",
+                                    result={**stats, "total": total})
+                        return
+
+                    result = enrich_one(
+                        af,
+                        default_artist=default_artist,
+                        caption_fn=caption_fn,
+                        lyrics_fn=(
+                            (lambda artist, title, af=af: lyrics_fn(artist, title, af))
+                            if lyrics_fn else None
+                        ),
+                        metadata_fn=metadata_fn,
+                        policy=policy,
+                    )
+                    status = str(result.get("status") or "failed")
+                    if status not in stats:
+                        status = "failed"
+                    stats[status] += 1
+
+                    msg = f"{af.name}: {status}"
+                    if status == "failed" and result.get("error"):
+                        msg = f"{af.name}: failed ({result.get('error')})"
+                    elif result.get("warnings"):
+                        msg = f"{af.name}: {status} ({'; '.join(result['warnings'])})"
+
+                    if result.get("error_code") == "local_caption_oom":
+                        caption_task.oom_detected = True
+                        caption_task.failure_reason = str(
+                            result.get("error") or "Local caption OOM"
+                        )
+                        _push(
+                            caption_task, processed, total, msg,
+                            written=stats["written"],
+                            skipped=stats["skipped"],
+                            failed=stats["failed"],
+                            error_code="local_caption_oom",
+                        )
+                        shared_cancel.set()
+                        caption_task.status = "failed"
+                        _push_event(
+                            caption_task, "fail",
+                            caption_task.failure_reason,
+                            result={**stats, "total": total},
+                            error_code="local_caption_oom",
+                            path=str(af), fatal=True,
+                        )
+                        return
+
+                    _push(
+                        caption_task, processed, total, msg,
+                        written=stats["written"],
+                        skipped=stats["skipped"],
+                        failed=stats["failed"],
+                    )
+
+                if shared_cancel.is_set():
+                    caption_task.status = "cancelled"
+                    _push_event(caption_task, "cancelled",
+                                result={**stats, "total": total})
+                    return
+
+                caption_task.status = "done"
+                _push_event(caption_task, "complete",
+                            result={**stats, "total": total})
+            except Exception as exc:
+                logger.exception("Pipeline: caption thread failed")
+                caption_task.status = "failed"
+                _push_event(caption_task, "fail", str(exc))
+            finally:
+                provider = str(caption_config.get("provider") or "").lower()
+                if provider in ("local_8-10gb", "local_12gb", "local_16gb"):
+                    try:
+                        from sidestep_engine.data.caption_provider_local import (
+                            unload_model,
+                        )
+                        unload_model()
+                    except Exception:
+                        pass
+
+        # ---- Start both threads ----
+        analyze_task.thread = threading.Thread(
+            target=_run_analyze, daemon=True, name="pipeline-analyze",
+        )
+        caption_task.thread = threading.Thread(
+            target=_run_captions, daemon=True, name="pipeline-captions",
+        )
+        with self._lock:
+            self._tasks[analyze_task_id] = analyze_task
+            self._tasks[caption_task_id] = caption_task
+        analyze_task.thread.start()
+        caption_task.thread.start()
+
+        return {
+            "ok": True,
+            "analyze_task_id": analyze_task_id,
+            "caption_task_id": caption_task_id,
+        }
 
     def stop_task(self, task_id: str) -> Dict[str, Any]:
         """Cancel an in-process task by setting its cancel flag."""

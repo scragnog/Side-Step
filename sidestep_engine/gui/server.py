@@ -767,6 +767,11 @@ def create_app(token: str | None = None, port: int = 8770) -> FastAPI:
         result = tm.start_audio_analyze(body)
         return JSONResponse(result)
 
+    @app.post("/api/pipeline/start")
+    async def start_pipeline(body: Dict[str, Any]):
+        result = tm.start_pipeline(body)
+        return JSONResponse(result)
+
     @app.post("/api/audio-analyze/one")
     async def analyze_one_file(body: Dict[str, Any]):
         """Run audio analysis on a single file and return results.
