@@ -48,6 +48,8 @@ _OPTIM_BPP: Dict[str, float] = {
     "prodigy":   16.0,   # m + v + s + d states (all fp32)
     "adamw8bit":  6.2,   # m (int8) + v (int8) + master (fp32) + quantization overhead
     "adafactor":  1.5,   # factored second-moment states
+    "scao":      14.0,   # m (fp32) + v (fp32) + SparsePreconditioner Kronecker factors
+    "rose":       0.5,   # stateless -- no persistent optimizer state (minimal bookkeeping)
 }
 
 # CUDA context + cuDNN workspace + misc driver allocations

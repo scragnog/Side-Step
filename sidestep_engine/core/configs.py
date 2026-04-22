@@ -250,7 +250,7 @@ class TrainingConfigV2(TrainingConfig):
 
     # --- Optimizer / Scheduler ------------------------------------------------
     optimizer_type: str = "adamw"
-    """Optimizer: 'adamw', 'adamw8bit', 'adafactor', 'prodigy'."""
+    """Optimizer: 'adamw', 'adamw8bit', 'adafactor', 'prodigy', 'scao', 'rose'."""
 
     scheduler_type: str = "cosine"
     """LR scheduler: 'cosine', 'cosine_restarts', 'linear', 'constant',

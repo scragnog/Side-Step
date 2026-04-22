@@ -698,6 +698,7 @@
               <div class="field-error"></div>
               <div class="field-warning" id="warn-pp-lr"></div>
               <div id="prodigy-lr-hint" class="u-text-warning" style="display: none; font-size: var(--font-size-sm); margin-top: 2px;">Prodigy auto-tunes LR. Start around 0.1 (not 1e-4).</div>
+              <div id="rose-lr-hint" class="u-text-warning" style="display: none; font-size: var(--font-size-sm); margin-top: 2px;">Rose is stateless — tune LR independently from AdamW. Try 0.01–0.1.</div>
               <div id="help-full-lr" class="help-panel">
                 <h4>What is Learning Rate?</h4>
                 <p><strong>Simple:</strong> How big a step the AI takes when learning. Too big = chaos. Too small = takes forever.</p>
@@ -1006,12 +1007,16 @@
                     <p><strong>AdamW 8-bit:</strong> Same algorithm but stores states in 8-bit precision. Saves ~30% VRAM with negligible quality impact.</p>
                     <p><strong>AdaFactor:</strong> Uses almost no extra memory by computing running statistics on-the-fly. Good for extreme VRAM constraints.</p>
                     <p><strong>Prodigy:</strong> Automatically tunes the learning rate during training. Set LR to ~0.1 and let it find the right value. Experimental but promising.</p>
+                    <p><strong>SCAO:</strong> Second-order optimizer using sparse curvature (Kronecker factors). Near-AdamW memory cost but potentially faster convergence. Requires <code>pip install scao</code>.</p>
+                    <p><strong>Rose:</strong> Stateless range-normalized optimizer. <strong>Zero optimizer VRAM</strong> — all memory goes to model and activations. Requires independent LR tuning (try 0.01–0.1).</p>
                   </div>
                   <select class="select vram-input" id="full-optimizer">
                     <option value="adamw">AdamW (standard)</option>
                     <option value="adamw8bit">AdamW 8-bit (saves ~30%)</option>
                     <option value="adafactor">AdaFactor (minimal state)</option>
                     <option value="prodigy">Prodigy (auto-tune LR)</option>
+                    <option value="scao">SCAO (second-order)</option>
+                    <option value="rose">Rose (stateless, zero VRAM)</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -3107,6 +3112,8 @@
                 <option value="adamw8bit">AdamW 8-bit</option>
                 <option value="adafactor">AdaFactor</option>
                 <option value="prodigy">Prodigy</option>
+                <option value="scao">SCAO</option>
+                <option value="rose">Rose</option>
               </select>
             </div>
             <div class="form-group" style="flex: 1;">

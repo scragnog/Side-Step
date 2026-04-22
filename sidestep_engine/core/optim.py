@@ -9,6 +9,8 @@ Supported optimizers:
     adamw8bit   -- bitsandbytes.optim.AdamW8bit (optional dep)
     adafactor   -- transformers.optimization.Adafactor
     prodigy     -- prodigyopt.Prodigy (optional dep, auto-tunes LR)
+    scao        -- scao.SCAO (sparse curvature-aware, optional dep)
+    rose        -- vendored Rose (stateless, zero optimizer VRAM)
 
 Supported schedulers:
     cosine              -- warmup + CosineAnnealingLR (single smooth decay)
@@ -283,6 +285,46 @@ def build_optimizer(
             logger.warning(
                 "[Side-Step] prodigyopt not installed -- falling back to AdamW. "
                 "Install with: pip install prodigyopt>=1.1.2"
+            )
+            optimizer_type = "adamw"
+
+    if optimizer_type == "scao":
+        try:
+            from scao import SCAO
+            logger.info(
+                "[Side-Step] Using SCAO optimizer (sparse curvature-aware, lr=%.6f, wd=%.6f)",
+                lr, weight_decay,
+            )
+            return SCAO(
+                params,
+                lr=lr,
+                weight_decay=weight_decay,
+                warmup_steps=0,  # Side-Step scheduler handles warmup
+            )
+        except ImportError:
+            logger.warning(
+                "[Side-Step] scao not installed -- falling back to AdamW. "
+                "Install with: pip install scao>=0.1.0"
+            )
+            optimizer_type = "adamw"
+
+    if optimizer_type == "rose":
+        try:
+            from sidestep_engine.vendor.rose import Rose
+            logger.info(
+                "[Side-Step] Using Rose optimizer (stateless, zero VRAM, lr=%.6f, wd=%.6f)",
+                lr, weight_decay,
+            )
+            return Rose(
+                params,
+                lr=lr,
+                weight_decay=weight_decay,
+                compute_dtype="fp32",  # fp64 default is too heavy for GPU
+            )
+        except Exception as exc:
+            logger.warning(
+                "[Side-Step] Rose import failed (%s) -- falling back to AdamW",
+                exc,
             )
             optimizer_type = "adamw"
 
