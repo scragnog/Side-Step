@@ -93,7 +93,7 @@ class AdapterEMA:
     def restore(self) -> None:
         """Restore raw training weights after an :meth:`apply` call."""
         if not self._backup:
-            logger.warning("[EMA] restore() called without a prior apply()")
+            logger.debug("[EMA] restore() called without a prior apply() (normal before EMA activates)")
             return
         for backup, param in zip(self._backup, self._params):
             param.data.copy_(backup)
