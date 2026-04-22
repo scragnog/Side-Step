@@ -50,6 +50,7 @@ _OPTIM_BPP: Dict[str, float] = {
     "adafactor":  1.5,   # factored second-moment states
     "scao":      14.0,   # m (fp32) + v (fp32) + SparsePreconditioner Kronecker factors
     "rose":       0.5,   # stateless -- no persistent optimizer state (minimal bookkeeping)
+    "automagic":  8.0,   # factored 2nd moments + int8 LR mask + bool polarity per element
 }
 
 # CUDA context + cuDNN workspace + misc driver allocations

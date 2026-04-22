@@ -381,13 +381,16 @@ const WorkspaceBehaviors = (() => {
     const optSel = $("full-optimizer");
     const lrHint = $("prodigy-lr-hint");
     const roseLrHint = $("rose-lr-hint");
+    const automagicLrHint = $("automagic-lr-hint");
     const schedSel = $("full-scheduler");
     if (!optSel) return;
     const update = () => {
       const isProdigy = optSel.value === "prodigy";
       const isRose = optSel.value === "rose";
+      const isAutomagic = optSel.value === "automagic";
       if (lrHint) lrHint.style.display = isProdigy ? "" : "none";
       if (roseLrHint) roseLrHint.style.display = isRose ? "" : "none";
+      if (automagicLrHint) automagicLrHint.style.display = isAutomagic ? "" : "none";
       if (schedSel) {
         const customOpt = schedSel.querySelector('option[value="custom"]');
         if (customOpt) customOpt.disabled = isProdigy;
@@ -496,8 +499,13 @@ const WorkspaceBehaviors = (() => {
             lrInput.value = "0.01";
             lrInput.dispatchEvent(new Event("input"));
           }
+        } else if (optimizerSel.value === "automagic") {
+          if (lrInput.value === prevLR || lrInput.value === "1e-4" || lrInput.value === "1.0" || lrInput.value === "0.01") {
+            lrInput.value = "1e-6";
+            lrInput.dispatchEvent(new Event("input"));
+          }
         } else {
-          if (lrInput.value === "1.0" || lrInput.value === "0.01") {
+          if (lrInput.value === "1.0" || lrInput.value === "0.01" || lrInput.value === "1e-6") {
             lrInput.value = prevLR || "1e-4";
             lrInput.dispatchEvent(new Event("input"));
           }

@@ -699,6 +699,7 @@
               <div class="field-warning" id="warn-pp-lr"></div>
               <div id="prodigy-lr-hint" class="u-text-warning" style="display: none; font-size: var(--font-size-sm); margin-top: 2px;">Prodigy auto-tunes LR. Start around 0.1 (not 1e-4).</div>
               <div id="rose-lr-hint" class="u-text-warning" style="display: none; font-size: var(--font-size-sm); margin-top: 2px;">Rose is stateless — tune LR independently from AdamW. Try 0.01–0.1.</div>
+              <div id="automagic-lr-hint" class="u-text-warning" style="display: none; font-size: var(--font-size-sm); margin-top: 2px;">Automagic self-manages LR per-element. Start LR is clamped to 1e-6 — leave as default.</div>
               <div id="help-full-lr" class="help-panel">
                 <h4>What is Learning Rate?</h4>
                 <p><strong>Simple:</strong> How big a step the AI takes when learning. Too big = chaos. Too small = takes forever.</p>
@@ -1009,6 +1010,7 @@
                     <p><strong>Prodigy:</strong> Automatically tunes the learning rate during training. Set LR to ~0.1 and let it find the right value. Experimental but promising.</p>
                     <p><strong>SCAO:</strong> Second-order optimizer using sparse curvature (Kronecker factors). Near-AdamW memory cost but potentially faster convergence. Requires <code>pip install scao</code>.</p>
                     <p><strong>Rose:</strong> Stateless range-normalized optimizer. <strong>Zero optimizer VRAM</strong> — all memory goes to model and activations. Requires independent LR tuning (try 0.01–0.1).</p>
+                    <p><strong>Automagic:</strong> Per-element adaptive LR with 8-bit compression. Self-manages learning rate — each weight gets its own LR that adjusts based on gradient consistency. Factored second moments (like Adafactor). Vendored, no install needed.</p>
                   </div>
                   <select class="select vram-input" id="full-optimizer">
                     <option value="adamw">AdamW (standard)</option>
@@ -1017,6 +1019,7 @@
                     <option value="prodigy">Prodigy (auto-tune LR)</option>
                     <option value="scao">SCAO (second-order)</option>
                     <option value="rose">Rose (stateless, zero VRAM)</option>
+                    <option value="automagic">Automagic (per-element adaptive LR)</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -3114,6 +3117,7 @@
                 <option value="prodigy">Prodigy</option>
                 <option value="scao">SCAO</option>
                 <option value="rose">Rose</option>
+                <option value="automagic">Automagic</option>
               </select>
             </div>
             <div class="form-group" style="flex: 1;">

@@ -59,6 +59,7 @@ def step_advanced_optimizer(a: dict) -> None:
             ("prodigy", "Prodigy (auto-tunes LR -- start around 0.1, needs prodigyopt)"),
             ("scao", "SCAO (second-order, near-AdamW cost, needs scao)"),
             ("rose", "Rose (stateless, zero optimizer VRAM)"),
+            ("automagic", "Automagic (per-element adaptive LR, self-manages LR)"),
         ],
         default=1,
         allow_back=True,

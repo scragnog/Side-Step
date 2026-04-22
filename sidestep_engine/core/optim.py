@@ -11,6 +11,7 @@ Supported optimizers:
     prodigy     -- prodigyopt.Prodigy (optional dep, auto-tunes LR)
     scao        -- scao.SCAO (sparse curvature-aware, optional dep)
     rose        -- vendored Rose (stateless, zero optimizer VRAM)
+    automagic   -- vendored Automagic (per-element adaptive LR, factored)
 
 Supported schedulers:
     cosine              -- warmup + CosineAnnealingLR (single smooth decay)
@@ -324,6 +325,25 @@ def build_optimizer(
         except Exception as exc:
             logger.warning(
                 "[Side-Step] Rose import failed (%s) -- falling back to AdamW",
+                exc,
+            )
+            optimizer_type = "adamw"
+
+    if optimizer_type == "automagic":
+        try:
+            from sidestep_engine.vendor.automagic import Automagic
+            logger.info(
+                "[Side-Step] Using Automagic optimizer (per-element adaptive LR, start_lr=%.6f, wd=%.6f)",
+                lr, weight_decay,
+            )
+            return Automagic(
+                params,
+                lr=lr,
+                weight_decay=weight_decay,
+            )
+        except Exception as exc:
+            logger.warning(
+                "[Side-Step] Automagic import failed (%s) -- falling back to AdamW",
                 exc,
             )
             optimizer_type = "adamw"
