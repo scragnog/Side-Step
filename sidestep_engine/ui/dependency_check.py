@@ -50,7 +50,7 @@ _PRODIGYOPT = OptionalDependency(
 _SCAO = OptionalDependency(
     key="scao",
     module="scao",
-    install_spec="scao>=0.1.0",
+    install_spec="scao @ git+https://github.com/whispering3/scao.git",
     reason="Optimizer `scao` was selected",
     impact_if_missing="Training falls back to AdamW (no SCAO curvature-aware updates).",
 )

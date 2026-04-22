@@ -1008,7 +1008,7 @@
                     <p><strong>AdamW 8-bit:</strong> Same algorithm but stores states in 8-bit precision. Saves ~30% VRAM with negligible quality impact.</p>
                     <p><strong>AdaFactor:</strong> Uses almost no extra memory by computing running statistics on-the-fly. Good for extreme VRAM constraints.</p>
                     <p><strong>Prodigy:</strong> Automatically tunes the learning rate during training. Set LR to ~0.1 and let it find the right value. Experimental but promising.</p>
-                    <p><strong>SCAO:</strong> Second-order optimizer using sparse curvature (Kronecker factors). Near-AdamW memory cost but potentially faster convergence. Requires <code>pip install scao</code>.</p>
+                    <p><strong>SCAO:</strong> Second-order optimizer using sparse curvature (Kronecker factors). Near-AdamW memory cost but potentially faster convergence. Requires <code>uv pip install git+https://github.com/whispering3/scao.git</code>.</p>
                     <p><strong>Rose:</strong> Stateless range-normalized optimizer. <strong>Zero optimizer VRAM</strong> — all memory goes to model and activations. Requires independent LR tuning (try 0.01–0.1).</p>
                     <p><strong>Automagic:</strong> Per-element adaptive LR with 8-bit compression. Self-manages learning rate — each weight gets its own LR that adjusts based on gradient consistency. Factored second moments (like Adafactor). Vendored, no install needed.</p>
                   </div>
