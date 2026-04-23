@@ -456,6 +456,7 @@ const WorkspaceConfig = (() => {
       target_loss_floor: _v("full-target-loss-floor", "0.01"),
       target_loss_warmup: _v("full-target-loss-warmup", "50"),
       target_loss_smoothing: _v("full-target-loss-smoothing", "0.98"),
+      target_loss_auto_stop: _c("full-target-loss-auto-stop") || false,
       resume_from: _v("full-resume-from", ""), strict_resume: $("full-strict-resume")?.checked ?? true,
       weight_decay: _v("full-weight-decay", "0.01"),
       max_grad_norm: _v("full-max-grad-norm", "1.0"), seed: _v("full-seed", "42"),

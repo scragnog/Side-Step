@@ -1320,6 +1320,20 @@
                   <div class="hint">Higher = smoother (0.95–0.99)</div>
                 </div>
               </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="full-target-loss-auto-stop">
+                    <span class="toggle__track"></span>
+                    Auto-stop at target <span class="help-icon" data-help="help-full-auto-stop">?</span>
+                  </label>
+                  <div id="help-full-auto-stop" class="help-panel">
+                    <p><strong>Simple:</strong> When enabled and target loss is set, training automatically saves the best checkpoint and terminates as soon as the MA5 smoothed loss drops below the target value.</p>
+                    <p><strong>Use case:</strong> Queued/autonomous training runs where you want to free the GPU as soon as the desired quality is reached instead of running the full epoch count.</p>
+                  </div>
+                  <div class="hint">Save best + terminate when MA5 &lt; target loss. For autonomous queues.</div>
+                </div>
+              </div>
               <!-- Optimizer internals -->
               <div style="color: var(--primary); font-size: var(--font-size-sm); font-weight: bold; margin: var(--space-md) 0 var(--space-xs);">Optimizer Internals</div>
               <div class="form-row">

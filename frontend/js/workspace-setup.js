@@ -217,6 +217,7 @@ const WorkspaceSetup = (() => {
       dynamic_channel_balance:"full-dynamic-channel-balance",
       save_best:"full-save-best", pin_memory:"full-pin-memory",
       persistent_workers:"full-persistent-workers",
+      target_loss_auto_stop:"full-target-loss-auto-stop",
       lokr_decompose_both:"full-lokr-decompose-both", lokr_use_tucker:"full-lokr-use-tucker",
       lokr_use_scalar:"full-lokr-use-scalar", lokr_weight_decompose:"full-lokr-weight-decompose",
       loha_use_tucker:"full-loha-use-tucker", loha_use_scalar:"full-loha-use-scalar",

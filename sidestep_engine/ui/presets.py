@@ -153,6 +153,7 @@ PRESET_TYPES: dict[str, type] = {
     # Cruise control
     "target_loss": float, "target_loss_floor": float,
     "target_loss_warmup": int, "target_loss_smoothing": float,
+    "target_loss_auto_stop": bool,
     # "All the Levers"
     "ema_decay": float, "ema_start_step": int, "val_split": float, "adaptive_timestep_ratio": float,
     "warmup_start_factor": float, "cosine_eta_min_ratio": float,
@@ -189,7 +190,8 @@ PRESET_FIELDS = frozenset([
     "lr_scale_self_attn", "lr_scale_cross_attn", "lr_scale_mlp",
     "save_every", "log_every", "log_heavy_every",
     "save_best", "save_best_after", "early_stop_patience",
-    "target_loss", "target_loss_floor", "target_loss_warmup", "target_loss_smoothing",
+    "target_loss", "target_loss_auto_stop", "target_loss_floor",
+    "target_loss_warmup", "target_loss_smoothing",
     "gradient_checkpointing", "gradient_checkpointing_ratio", "offload_encoder",
     # "All the Levers"
     "ema_decay", "ema_start_step", "val_split", "adaptive_timestep_ratio",
