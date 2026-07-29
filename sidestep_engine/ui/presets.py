@@ -145,6 +145,8 @@ PRESET_TYPES: dict[str, type] = {
     "cfg_ratio": float, "snr_gamma": float, "timestep_mode": str,
     "loss_fn": str, "huber_delta": float, "latent_noise": float, "t_bias": float,
     "dynamic_channel_balance": bool,
+    # Per-layer-type LR scales
+    "lr_scale_self_attn": float, "lr_scale_cross_attn": float, "lr_scale_mlp": float,
     "save_every": int, "log_every": int, "log_heavy_every": int,
     "save_best_after": int, "early_stop_patience": int,
     "gradient_checkpointing_ratio": float,
@@ -184,6 +186,7 @@ PRESET_FIELDS = frozenset([
     "timestep_mode", "cfg_ratio", "loss_weighting", "snr_gamma",
     "loss_fn", "huber_delta", "channel_balance", "vae_channel_prior",
     "latent_noise", "t_bias", "legacy_loss", "dynamic_channel_balance",
+    "lr_scale_self_attn", "lr_scale_cross_attn", "lr_scale_mlp",
     "save_every", "log_every", "log_heavy_every",
     "save_best", "save_best_after", "early_stop_patience",
     "target_loss", "target_loss_floor", "target_loss_warmup", "target_loss_smoothing",

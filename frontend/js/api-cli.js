@@ -132,6 +132,9 @@ const APICli = (() => {
       add('--ema-decay', config.ema_decay);
       addNonDefault('--ema-start-step', config.ema_start_step, '2000');
     }
+    addNonDefault('--lr-scale-self-attn', config.lr_scale_self_attn, '1');
+    addNonDefault('--lr-scale-cross-attn', config.lr_scale_cross_attn, '1');
+    addNonDefault('--lr-scale-mlp', config.lr_scale_mlp, '1');
     if (config.val_split && config.val_split !== '0') add('--val-split', config.val_split);
     if (config.adaptive_timestep_ratio && config.adaptive_timestep_ratio !== '0') add('--adaptive-timestep-ratio', config.adaptive_timestep_ratio);
     if (config.save_best_every_n_steps && config.save_best_every_n_steps !== '0') add('--save-best-every-n-steps', config.save_best_every_n_steps);

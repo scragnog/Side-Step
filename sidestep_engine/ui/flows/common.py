@@ -77,6 +77,9 @@ from sidestep_engine.training_defaults import (
     DEFAULT_T_BIAS,
     DEFAULT_LEGACY_LOSS,
     DEFAULT_DYNAMIC_CHANNEL_BALANCE,
+    DEFAULT_LR_SCALE_SELF_ATTN,
+    DEFAULT_LR_SCALE_CROSS_ATTN,
+    DEFAULT_LR_SCALE_MLP,
     DEFAULT_STRICT_RESUME,
     DEFAULT_TARGET_MLP,
     DEFAULT_TIMESTEP_MODE,
@@ -363,4 +366,9 @@ def build_train_namespace(a: dict, mode: str = "train") -> argparse.Namespace:
         save_best_every_n_steps=a.get("save_best_every_n_steps", DEFAULT_SAVE_BEST_EVERY_N_STEPS),
         timestep_mu=a.get("timestep_mu"),
         timestep_sigma=a.get("timestep_sigma"),
+        # Must be passed through here — config_factory falls back to the
+        # defaults when absent, silently ignoring wizard/preset values.
+        lr_scale_self_attn=a.get("lr_scale_self_attn", DEFAULT_LR_SCALE_SELF_ATTN),
+        lr_scale_cross_attn=a.get("lr_scale_cross_attn", DEFAULT_LR_SCALE_CROSS_ATTN),
+        lr_scale_mlp=a.get("lr_scale_mlp", DEFAULT_LR_SCALE_MLP),
     )
