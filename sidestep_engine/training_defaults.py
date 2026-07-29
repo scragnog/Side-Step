@@ -102,6 +102,11 @@ DEFAULT_OFFLOAD_ENCODER: bool = True
 # ---------------------------------------------------------------------------
 
 DEFAULT_SAVE_EVERY: int = 50
+DEFAULT_SAMPLE_EVERY: int = 0
+DEFAULT_SAMPLE_DURATION: float = 30.0
+DEFAULT_SAMPLE_STEPS: int = 0
+DEFAULT_SAMPLE_SEED: int = 42
+DEFAULT_SAMPLE_BACKEND: str = "auto"
 DEFAULT_SAVE_BEST: bool = True
 DEFAULT_SAVE_BEST_AFTER: int = 200
 DEFAULT_EARLY_STOP_PATIENCE: int = 0
@@ -111,6 +116,7 @@ DEFAULT_TARGET_LOSS_AUTO_STOP: bool = False
 DEFAULT_TARGET_LOSS_FLOOR: float = 0.01
 DEFAULT_TARGET_LOSS_WARMUP: int = 50
 DEFAULT_TARGET_LOSS_SMOOTHING: float = 0.98
+DEFAULT_LOSS_MILESTONE_INTERVAL: float = 0.0
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -235,6 +241,11 @@ TRAINING_DEFAULTS: dict = {
     "offload_encoder": DEFAULT_OFFLOAD_ENCODER,
     # Checkpointing
     "save_every": DEFAULT_SAVE_EVERY,
+    "sample_every": DEFAULT_SAMPLE_EVERY,
+    "sample_duration": DEFAULT_SAMPLE_DURATION,
+    "sample_steps": DEFAULT_SAMPLE_STEPS,
+    "sample_seed": DEFAULT_SAMPLE_SEED,
+    "sample_backend": DEFAULT_SAMPLE_BACKEND,
     "save_best": DEFAULT_SAVE_BEST,
     "save_best_after": DEFAULT_SAVE_BEST_AFTER,
     "early_stop_patience": DEFAULT_EARLY_STOP_PATIENCE,
@@ -244,6 +255,7 @@ TRAINING_DEFAULTS: dict = {
     "target_loss_floor": DEFAULT_TARGET_LOSS_FLOOR,
     "target_loss_warmup": DEFAULT_TARGET_LOSS_WARMUP,
     "target_loss_smoothing": DEFAULT_TARGET_LOSS_SMOOTHING,
+    "loss_milestone_interval": DEFAULT_LOSS_MILESTONE_INTERVAL,
     # Logging
     "log_every": DEFAULT_LOG_EVERY,
     "log_heavy_every": DEFAULT_LOG_HEAVY_EVERY,

@@ -45,8 +45,10 @@ from sidestep_engine.core.configs import (
 )
 from sidestep_engine.core.timestep_sampling import (
     apply_cfg_dropout,
+    constrain_timestep_window,
     sample_discrete_timesteps,
     sample_timesteps,
+    windowed_discrete_schedule,
 )
 from sidestep_engine.core.types import TrainingUpdate
 
@@ -188,6 +190,17 @@ class FixedLoRAModule(nn.Module):
         # -- Training strategy -------------------------------------------------
         self._is_turbo: bool = getattr(training_config, "is_turbo", False)
         self._timestep_mode: str = getattr(training_config, "timestep_mode", "continuous")
+        # Timestep window (interval-expert adapters): restrict training to a
+        # slice of the trajectory. Full range [0, 1] = disabled.
+        self._t_window_min: float = float(getattr(training_config, "timestep_window_min", 0.0))
+        self._t_window_max: float = float(getattr(training_config, "timestep_window_max", 1.0))
+        self._t_windowed: bool = self._t_window_min > 0.0 or self._t_window_max < 1.0
+        if self._t_windowed:
+            logger.info(
+                "[OK] Timestep window active: training only t in [%.2f, %.2f] "
+                "(interval-expert adapter)",
+                self._t_window_min, self._t_window_max,
+            )
 
         # Timestep sampling params (used for all variants)
         self._timestep_mu = training_config.timestep_mu
@@ -425,6 +438,9 @@ class FixedLoRAModule(nn.Module):
                     batch_size=bsz,
                     device=self.device,
                     dtype=self.dtype,
+                    # Windowed: train only on the schedule values inside the window.
+                    timesteps=(windowed_discrete_schedule(self._t_window_min, self._t_window_max)
+                               if self._t_windowed else None),
                 )
             elif self._adaptive_sampler is not None:
                 t, _r = self._adaptive_sampler.sample(
@@ -446,6 +462,24 @@ class FixedLoRAModule(nn.Module):
                     timestep_mu=self._timestep_mu,
                     timestep_sigma=self._timestep_sigma,
                     use_meanflow=False,
+                )
+            # Interval-expert window: rejection-resample out-of-window timesteps
+            # from the base logit-normal so the in-window distribution keeps its
+            # shape. Applied after the adaptive sampler too — replacements come
+            # from the base distribution (adaptive bins still guide the rest).
+            # Discrete mode is already windowed via the filtered schedule above.
+            if self._t_windowed and self._timestep_mode != "discrete":
+                t = constrain_timestep_window(
+                    t, self._t_window_min, self._t_window_max,
+                    resampler=lambda n: sample_timesteps(
+                        batch_size=n,
+                        device=self.device,
+                        dtype=self.dtype,
+                        data_proportion=self._data_proportion,
+                        timestep_mu=self._timestep_mu,
+                        timestep_sigma=self._timestep_sigma,
+                        use_meanflow=False,
+                    )[0],
                 )
 
             # Record sampled timesteps for TensorBoard histogram logging.

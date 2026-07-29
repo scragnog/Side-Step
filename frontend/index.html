@@ -1174,6 +1174,15 @@
                   <div class="field-error"></div>
                 </div>
                 <div class="form-group">
+                  <label class="form-group__label">Audio sample every N epochs <span class="help-icon" data-help="help-full-sample-every">?</span></label>
+                  <div id="help-full-sample-every" class="help-panel">
+                    <p><strong>Simple:</strong> Generates a 30-second audio preview every N epochs using the current adapter weights, so you can hear the style converge. 0 = disabled.</p>
+                    <p>Uses the caption/BPM/key from your dataset's first sample plus a generic verse/chorus, with a fixed seed so previews are directly comparable across epochs. Written to the run's <code>samples/</code> folder. Adds a few seconds per sample; briefly loads the text encoder (first sample) and VAE (each sample).</p>
+                  </div>
+                  <input class="input has-default" type="number" id="full-sample-every" value="0" data-default="0" data-validate="gte:0 int">
+                  <div class="field-error"></div>
+                </div>
+                <div class="form-group">
                   <label class="form-group__label">Log every N steps <span class="help-icon" data-help="help-full-log-every">?</span></label>
                   <div id="help-full-log-every" class="help-panel">
                     <p><strong>Simple:</strong> How often to write loss values to TensorBoard and the training monitor chart. Lower = more granular graphs but slightly more I/O overhead.</p>
@@ -1190,6 +1199,40 @@
                   <input class="input has-default" type="number" id="full-log-heavy-every" value="50" data-default="50" data-validate="gte:0 int">
                   <div class="field-error"></div>
                   <div class="hint">0 = disabled. Logs gradient norm statistics.</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-group__label">Sample duration (s) <span class="help-icon" data-help="help-full-sample-duration">?</span></label>
+                  <div id="help-full-sample-duration" class="help-panel">
+                    <p><strong>Simple:</strong> Length in seconds of each audio preview (epoch previews and loss-milestone previews).</p>
+                  </div>
+                  <input class="input has-default" type="number" id="full-sample-duration" value="30" data-default="30" data-validate="gt:0">
+                  <div class="field-error"></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-group__label">Sample steps <span class="help-icon" data-help="help-full-sample-steps">?</span></label>
+                  <div id="help-full-sample-steps" class="help-panel">
+                    <p><strong>Simple:</strong> Inference steps for audio previews. 0 = auto (8 for turbo models, 30 for base).</p>
+                  </div>
+                  <input class="input has-default" type="number" id="full-sample-steps" value="0" data-default="0" data-validate="gte:0 int">
+                  <div class="field-error"></div>
+                  <div class="hint">0 = auto (8 turbo / 30 base)</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-group__label">Sample seed <span class="help-icon" data-help="help-full-sample-seed">?</span></label>
+                  <div id="help-full-sample-seed" class="help-panel">
+                    <p><strong>Simple:</strong> Fixed noise seed for previews so every sample in a run is directly comparable. Sampling never disturbs training RNG.</p>
+                  </div>
+                  <input class="input has-default" type="number" id="full-sample-seed" value="42" data-default="42" data-validate="gte:0 int">
+                  <div class="field-error"></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-group__label">Sample lyrics <span class="help-icon" data-help="help-full-sample-lyrics">?</span></label>
+                  <div id="help-full-sample-lyrics" class="help-panel">
+                    <p><strong>Simple:</strong> Lyrics used for audio previews. Leave empty for the built-in generic verse/chorus.</p>
+                  </div>
+                  <textarea class="input" id="full-sample-lyrics" rows="2" placeholder="(built-in generic verse/chorus)"></textarea>
                 </div>
               </div>
               <div class="form-row">
@@ -1332,6 +1375,17 @@
                     <p><strong>Use case:</strong> Queued/autonomous training runs where you want to free the GPU as soon as the desired quality is reached instead of running the full epoch count.</p>
                   </div>
                   <div class="hint">Save best + terminate when MA5 &lt; target loss. For autonomous queues.</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-group__label">Loss milestone interval (0=off) <span class="help-icon" data-help="help-full-loss-milestone">?</span></label>
+                  <div id="help-full-loss-milestone" class="help-panel">
+                    <h4>Loss-Milestone Snapshots</h4>
+                    <p><strong>Simple:</strong> Saves an inference-ready adapter + audio preview each time the smoothed (MA5) loss first crosses a multiple of this value. With 0.1 you get snapshots at loss 0.9, 0.8, ... 0.1 in <code>milestones/loss_X.XX/</code>.</p>
+                    <p><strong>Use case:</strong> Find the highest loss where the adapter already sounds like the artist, then set Target loss there for faster future runs.</p>
+                  </div>
+                  <input class="input has-default" type="number" id="full-loss-milestone-interval" value="0" step="0.05" data-default="0" data-validate="gte:0">
+                  <div class="field-error"></div>
+                  <div class="hint">0.1 = adapter + preview at each 0.1 of loss. 0=off.</div>
                 </div>
               </div>
               <!-- Optimizer internals -->
@@ -1483,6 +1537,23 @@
                   <input class="input has-default" type="number" id="full-timestep-sigma" value="1.0" step="0.1" data-default="1.0" data-validate="gt:0">
                   <div class="field-error"></div>
                   <div class="field-warning" id="warn-timestep-sigma"></div>
+                </div>
+                <div class="form-group">
+                  <label class="form-group__label">Timestep window min <span class="help-icon" data-help="help-full-ts-window-min">?</span></label>
+                  <div id="help-full-ts-window-min" class="help-panel">
+                    <p><strong>Simple:</strong> Train only on timesteps &ge; this value (0&ndash;1). Used for interval-expert / timestep-windowed adapters. 0 = no lower bound.</p>
+                  </div>
+                  <input class="input has-default" type="number" id="full-timestep-window-min" value="0" step="0.05" data-default="0" data-validate="range:0:1">
+                  <div class="field-error"></div>
+                  <div class="hint">0&ndash;1. For timestep-windowed adapters.</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-group__label">Timestep window max <span class="help-icon" data-help="help-full-ts-window-max">?</span></label>
+                  <div id="help-full-ts-window-max" class="help-panel">
+                    <p><strong>Simple:</strong> Train only on timesteps &le; this value (0&ndash;1). 1 = no upper bound.</p>
+                  </div>
+                  <input class="input has-default" type="number" id="full-timestep-window-max" value="1" step="0.05" data-default="1" data-validate="range:0:1">
+                  <div class="field-error"></div>
                 </div>
               </div>
 

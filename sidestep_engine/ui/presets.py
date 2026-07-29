@@ -154,6 +154,16 @@ PRESET_TYPES: dict[str, type] = {
     "target_loss": float, "target_loss_floor": float,
     "target_loss_warmup": int, "target_loss_smoothing": float,
     "target_loss_auto_stop": bool,
+    "loss_milestone_interval": float,
+    # Audio previews
+    "sample_every": int, "sample_duration": float, "sample_steps": int,
+    "sample_seed": int, "sample_lyrics": str, "sample_backend": str,
+    # Timestep distribution / windows
+    "timestep_mu": float, "timestep_sigma": float,
+    "timestep_window_min": float, "timestep_window_max": float,
+    # Per-layer-type LR scales
+    "lr_scale_self_attn": float, "lr_scale_cross_attn": float, "lr_scale_mlp": float,
+    "dynamic_channel_balance": bool,
     # "All the Levers"
     "ema_decay": float, "ema_start_step": int, "val_split": float, "adaptive_timestep_ratio": float,
     "warmup_start_factor": float, "cosine_eta_min_ratio": float,
@@ -187,11 +197,14 @@ PRESET_FIELDS = frozenset([
     "timestep_mode", "cfg_ratio", "loss_weighting", "snr_gamma",
     "loss_fn", "huber_delta", "channel_balance", "vae_channel_prior",
     "latent_noise", "t_bias", "legacy_loss", "dynamic_channel_balance",
+    "timestep_mu", "timestep_sigma", "timestep_window_min", "timestep_window_max",
     "lr_scale_self_attn", "lr_scale_cross_attn", "lr_scale_mlp",
+    "sample_every", "sample_duration", "sample_steps", "sample_seed", "sample_lyrics",
+    "sample_backend",
     "save_every", "log_every", "log_heavy_every",
     "save_best", "save_best_after", "early_stop_patience",
     "target_loss", "target_loss_auto_stop", "target_loss_floor",
-    "target_loss_warmup", "target_loss_smoothing",
+    "target_loss_warmup", "target_loss_smoothing", "loss_milestone_interval",
     "gradient_checkpointing", "gradient_checkpointing_ratio", "offload_encoder",
     # "All the Levers"
     "ema_decay", "ema_start_step", "val_split", "adaptive_timestep_ratio",

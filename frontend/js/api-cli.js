@@ -87,6 +87,8 @@ const APICli = (() => {
     addBool('--dynamic-channel-balance', config.dynamic_channel_balance);
     addNoBool('--vae-channel-prior', config.vae_channel_prior);
     addBool('--legacy-loss', config.legacy_loss);
+    addNonDefault('--timestep-window-min', config.timestep_window_min, '0');
+    addNonDefault('--timestep-window-max', config.timestep_window_max, '1');
 
     add('--optimizer-type', config.optimizer_type); add('--scheduler-type', config.scheduler);
     if (config.scheduler === 'custom' && config.scheduler_formula) add('--scheduler-formula', config.scheduler_formula);
@@ -107,6 +109,15 @@ const APICli = (() => {
     }
 
     add('--save-every', config.save_every); add('--log-every', config.log_every);
+    if (config.sample_every && config.sample_every !== '0') add('--sample-every', config.sample_every);
+    const _milestones = config.loss_milestone_interval && config.loss_milestone_interval !== '0';
+    if (_milestones) add('--loss-milestone-interval', config.loss_milestone_interval);
+    if ((config.sample_every && config.sample_every !== '0') || _milestones) {
+      addNonDefault('--sample-duration', config.sample_duration, '30');
+      addNonDefault('--sample-steps', config.sample_steps, '0');
+      addNonDefault('--sample-seed', config.sample_seed, '42');
+      if (config.sample_lyrics) add('--sample-lyrics', config.sample_lyrics);
+    }
     addNonDefault('--log-heavy-every', config.log_heavy_every, '50');
     addBool('--save-best', config.save_best);
     addNoBool('--save-best', config.save_best);
@@ -118,6 +129,7 @@ const APICli = (() => {
       addNonDefault('--target-loss-floor', config.target_loss_floor, '0.01');
       addNonDefault('--target-loss-warmup', config.target_loss_warmup, '50');
       addNonDefault('--target-loss-smoothing', config.target_loss_smoothing, '0.98');
+      addBool('--target-loss-auto-stop', config.target_loss_auto_stop);
     }
     if (config.resume_from) add('--resume-from', config.resume_from);
     if (config.resume_from && config.strict_resume === false) parts.push('--no-strict-resume');

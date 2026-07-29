@@ -1529,6 +1529,10 @@ const Training = (() => {
         _addLog(`[checkpoint]  saved at step ${msg.step}`, 'ckpt');
       }
 
+      if (kind === 'sample') {
+        _addLog(`[sample]  Audio preview generated at epoch ${msg.epoch}: ${msg.path || ''}`, 'ckpt');
+      }
+
       // Progress 'complete' does NOT finalize — it only updates the UI.
       // The actual 'status' message with exit code is the final authority.
       if (kind === 'complete') {

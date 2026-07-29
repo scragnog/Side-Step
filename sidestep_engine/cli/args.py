@@ -30,6 +30,8 @@ from sidestep_engine.training_defaults import (
     DEFAULT_TARGET_LOSS_FLOOR,
     DEFAULT_TARGET_LOSS_WARMUP,
     DEFAULT_TARGET_LOSS_SMOOTHING,
+    DEFAULT_LOSS_MILESTONE_INTERVAL,
+    DEFAULT_SAMPLE_BACKEND,
     DEFAULT_EPOCHS,
     DEFAULT_GRADIENT_ACCUMULATION,
     DEFAULT_GRADIENT_CHECKPOINTING_RATIO,
@@ -56,6 +58,10 @@ from sidestep_engine.training_defaults import (
     DEFAULT_SAVE_BEST_AFTER,
     DEFAULT_SAVE_BEST_EVERY_N_STEPS,
     DEFAULT_SAVE_EVERY,
+    DEFAULT_SAMPLE_EVERY,
+    DEFAULT_SAMPLE_DURATION,
+    DEFAULT_SAMPLE_STEPS,
+    DEFAULT_SAMPLE_SEED,
     DEFAULT_SCHEDULER_TYPE,
     DEFAULT_SEED,
     DEFAULT_SNR_GAMMA,
@@ -512,6 +518,26 @@ def _add_common_training_args(parser: argparse.ArgumentParser) -> None:
     g_ckpt = parser.add_argument_group("Checkpointing")
     g_ckpt.add_argument("--output-dir", "-o", type=str, default=None, help="Output directory for adapter weights")
     g_ckpt.add_argument("--save-every", type=int, default=DEFAULT_SAVE_EVERY, help=f"Save checkpoint every N epochs (default: {DEFAULT_SAVE_EVERY})")
+    g_ckpt.add_argument("--sample-every", type=int, default=DEFAULT_SAMPLE_EVERY,
+                         help=f"Generate a short audio preview every N epochs; 0=off (default: {DEFAULT_SAMPLE_EVERY})")
+    g_ckpt.add_argument("--sample-duration", type=float, default=DEFAULT_SAMPLE_DURATION,
+                         help=f"Duration in seconds of epoch audio previews (default: {DEFAULT_SAMPLE_DURATION})")
+    g_ckpt.add_argument("--sample-steps", type=int, default=DEFAULT_SAMPLE_STEPS,
+                         help="Inference steps for epoch previews; 0=auto: 8 turbo / 30 base (default: 0)")
+    g_ckpt.add_argument("--sample-seed", type=int, default=DEFAULT_SAMPLE_SEED,
+                         help=f"Fixed noise seed for epoch previews (default: {DEFAULT_SAMPLE_SEED})")
+    g_ckpt.add_argument("--sample-lyrics", type=str, default="",
+                         help="Lyrics for epoch previews (default: built-in generic verse/chorus)")
+    g_ckpt.add_argument("--sample-backend", type=str, default=DEFAULT_SAMPLE_BACKEND,
+                         choices=["auto", "engine", "python"], dest="sample_backend",
+                         help="Preview renderer: auto = external ace-synth engine when available, "
+                              "else in-process Python sampler (default: auto)")
+    g_ckpt.add_argument("--loss-milestone-interval", type=float,
+                         default=DEFAULT_LOSS_MILESTONE_INTERVAL,
+                         dest="loss_milestone_interval",
+                         help="Save an inference-ready adapter + audio preview each time smoothed "
+                              "loss first crosses a multiple of this value (e.g. 0.1 -> snapshots "
+                              "at loss 0.9, 0.8, ...). 0=off (default: 0)")
     g_ckpt.add_argument("--resume-from", type=str, default=None, help="Path to checkpoint dir to resume from")
     g_ckpt.add_argument("--strict-resume", action=argparse.BooleanOptionalAction, default=True,
                          help="Abort on config mismatch or failed state restore during resume (default: True)")
@@ -575,6 +601,11 @@ def _add_train_args(parser: argparse.ArgumentParser) -> None:
     g.add_argument("--timestep-mode", type=str, default=DEFAULT_TIMESTEP_MODE, choices=["continuous", "discrete"],
                    dest="timestep_mode",
                    help=f"Timestep sampling: 'continuous' (logit-normal, recommended) or 'discrete' (8-step turbo schedule). (default: {DEFAULT_TIMESTEP_MODE})")
+    g.add_argument("--timestep-window-min", type=float, default=0.0, dest="timestep_window_min",
+                   help="Train only on timesteps >= this (t=1 noise, t=0 clean). For interval-expert "
+                        "adapters: structure expert = 0.5..1.0, timbre expert = 0.0..0.5. (default: 0.0)")
+    g.add_argument("--timestep-window-max", type=float, default=1.0, dest="timestep_window_max",
+                   help="Train only on timesteps <= this. See --timestep-window-min. (default: 1.0)")
     g.add_argument("--cfg-ratio", type=float, default=DEFAULT_CFG_RATIO, help=f"CFG dropout probability (default: {DEFAULT_CFG_RATIO})")
     g.add_argument("--loss-weighting", type=str, default=DEFAULT_LOSS_WEIGHTING, choices=["none", "min_snr", "flow_snr"],
                    help=f"Loss weighting: 'flow_snr' (correct for rectified flow), 'min_snr' (DDPM, legacy), or 'none' (flat). (default: {DEFAULT_LOSS_WEIGHTING})")

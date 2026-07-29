@@ -336,6 +336,16 @@ class TrainingConfigV2(TrainingConfig):
     Previously turbo always used discrete; as of v1.1.1 continuous is the
     default for all variants."""
 
+    timestep_window_min: float = 0.0
+    timestep_window_max: float = 1.0
+    """Restrict training timesteps to [min, max] ⊂ [0, 1] (t=1 noise, t=0
+    clean). Trains interval-expert adapters for timestep-dependent
+    adapter gating: e.g. a "structure" expert on [0.5, 1.0] and a "timbre"
+    expert on [0.0, 0.5]. Continuous mode rejection-resamples outside the
+    window; discrete mode filters the 8-step schedule. Full range = off.
+    The high-noise expert overfits fastest (T-LoRA) — consider a lower rank
+    for it than for the low-noise expert."""
+
     # --- Model variant detection ---------------------------------------------
     is_turbo: bool = False
     """Auto-detected: ``True`` when the model is turbo or a turbo-based
@@ -381,6 +391,39 @@ class TrainingConfigV2(TrainingConfig):
     early_stop_patience: int = 0
     """Stop training if smoothed loss doesn't improve for this many epochs
     after best-model tracking is active.  0 = disabled."""
+
+    sample_every_n_epochs: int = 0
+    """Generate a short audio preview every N epochs (0 = disabled).
+    Uses the live in-memory adapter weights (EMA-applied when active),
+    a caption/bpm/key taken from the first dataset sample's metadata, and
+    a generic verse/chorus lyric.  Written to ``{output_dir}/samples/``."""
+
+    sample_duration: float = 30.0
+    """Duration in seconds of each epoch audio preview."""
+
+    sample_steps: int = 0
+    """Inference steps for epoch previews.  0 = auto (8 turbo / 30 base)."""
+
+    sample_seed: int = 42
+    """Fixed noise seed for epoch previews so samples are comparable
+    across epochs.  Sampling never disturbs training RNG state."""
+
+    sample_lyrics: str = ""
+    """Lyrics for epoch previews.  Empty = built-in generic verse/chorus."""
+
+    sample_backend: str = "auto"
+    """Preview renderer: 'auto' (external ace-synth engine when available,
+    else in-process Python sampler), 'engine', or 'python'.  The engine
+    backend renders the saved adapter snapshot through the exact GGUF
+    inference stack used for real generations."""
+
+    loss_milestone_interval: float = 0.0
+    """Save an inference-ready adapter snapshot (+ audio preview) each time
+    the smoothed epoch loss first crosses a multiple of this value
+    (e.g. 0.1 -> snapshots at loss 0.9, 0.8, ... 0.1).  The milestone
+    ladder starts just below the first observed smoothed loss, so resumed
+    runs never re-save milestones already passed.  0 = disabled.
+    Written to ``{output_dir}/milestones/loss_<value>/``."""
 
     target_loss: float = 0.0
     """Target loss for cruise control.  When smoothed loss reaches this value,
@@ -571,6 +614,22 @@ class TrainingConfigV2(TrainingConfig):
             errors.append(
                 f"save_every_n_epochs must be >= 1 (got {self.save_every_n_epochs})"
             )
+        if self.sample_every_n_epochs < 0:
+            errors.append(
+                f"sample_every_n_epochs must be >= 0 (got {self.sample_every_n_epochs})"
+            )
+        if self.sample_duration <= 0:
+            errors.append(f"sample_duration must be > 0 (got {self.sample_duration})")
+        if self.sample_steps < 0:
+            errors.append(f"sample_steps must be >= 0 (got {self.sample_steps})")
+        if self.loss_milestone_interval < 0:
+            errors.append(
+                f"loss_milestone_interval must be >= 0 (got {self.loss_milestone_interval})"
+            )
+        if self.sample_backend not in ("auto", "engine", "python"):
+            errors.append(
+                f"sample_backend must be 'auto', 'engine', or 'python' (got {self.sample_backend!r})"
+            )
         if not (0.0 <= self.ema_decay < 1.0):
             errors.append(f"ema_decay must be >= 0 and < 1 (got {self.ema_decay})")
         if self.ema_start_step < 0:
@@ -736,6 +795,13 @@ class TrainingConfigV2(TrainingConfig):
                 "save_best": self.save_best,
                 "save_best_after": self.save_best_after,
                 "early_stop_patience": self.early_stop_patience,
+                "sample_every_n_epochs": self.sample_every_n_epochs,
+                "sample_duration": self.sample_duration,
+                "sample_steps": self.sample_steps,
+                "sample_seed": self.sample_seed,
+                "sample_lyrics": self.sample_lyrics,
+                "sample_backend": self.sample_backend,
+                "loss_milestone_interval": self.loss_milestone_interval,
                 "target_loss": self.target_loss,
                 "target_loss_auto_stop": self.target_loss_auto_stop,
                 "target_loss_floor": self.target_loss_floor,

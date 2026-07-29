@@ -696,6 +696,31 @@ class FixedLoRATrainer:
             _chunk_sampler.load_state_dict(_resumed_runtime["chunk_coverage_state"])
             yield TrainingUpdate(0, 0.0, "[OK] Chunk coverage state restored", kind="info")
 
+        # -- Epoch audio previews --
+        from sidestep_engine.core.sampling import EngineSampler, make_epoch_sampler
+        _epoch_sampler = make_epoch_sampler(cfg)
+        if _epoch_sampler.enabled:
+            _backend = "ace-synth engine" if isinstance(_epoch_sampler, EngineSampler) else "python"
+            yield TrainingUpdate(
+                0, 0.0,
+                f"[INFO] Epoch audio previews enabled: every "
+                f"{cfg.sample_every_n_epochs} epochs -> samples/ (backend: {_backend})",
+                kind="info",
+            )
+
+        # -- Loss-milestone snapshots --
+        from sidestep_engine.core.milestones import (
+            LossMilestoneTracker, milestone_epoch_hook,
+        )
+        _milestone_tracker = LossMilestoneTracker(cfg)
+        if _milestone_tracker.enabled:
+            yield TrainingUpdate(
+                0, 0.0,
+                f"[INFO] Loss-milestone snapshots enabled: adapter + audio preview "
+                f"at every {_milestone_tracker.interval:g} of smoothed loss -> milestones/",
+                kind="info",
+            )
+
         for epoch in range(start_epoch, cfg.max_epochs):
             # Notify chunk sampler of epoch boundary for histogram decay
             if _chunk_sampler is not None:
@@ -1045,6 +1070,18 @@ class FixedLoRATrainer:
                             epoch_time=epoch_time, best_loss=best_loss,
                             best_epoch=best_epoch)
 
+            # -- Loss-milestone snapshot + preview --
+            # Runs before the early-stop / target-loss breaks so the final
+            # milestone (e.g. 0.10) is captured on the stopping epoch.
+            if _milestone_tracker.enabled:
+                yield from milestone_epoch_hook(
+                    _milestone_tracker, _epoch_sampler, self.module, _ema,
+                    self._save_adapter_flat,
+                    tracking_loss=_tracking_loss, epoch=epoch + 1,
+                    max_epochs=cfg.max_epochs, global_step=global_step,
+                    output_dir=output_dir, pw=_pw,
+                )
+
             # Auto-save best model (eval mode for consistent saved weights)
             if is_new_best:
                 best_path = str(output_dir / "best")
@@ -1145,6 +1182,24 @@ class FixedLoRATrainer:
                     kind="checkpoint", epoch=epoch + 1, max_epochs=cfg.max_epochs,
                     checkpoint_path=ckpt_dir,
                 )
+
+            # -- Epoch audio preview ------------------
+            if _epoch_sampler.should_sample(epoch + 1):
+                _sample_msg, _sample_ok = _epoch_sampler.generate(
+                    self.module, epoch + 1, output_dir, ema=_ema,
+                    save_adapter_fn=self._save_adapter_flat,
+                )
+                if _sample_msg:
+                    yield TrainingUpdate(
+                        step=global_step, loss=avg_epoch_loss, msg=_sample_msg,
+                        kind="info" if _sample_ok else "warn",
+                        epoch=epoch + 1, max_epochs=cfg.max_epochs,
+                    )
+                    if _sample_ok:
+                        _pw.write_event(
+                            kind="sample", step=global_step, epoch=epoch + 1,
+                            path=_epoch_sampler.last_sample_path or "",
+                        )
 
             # Clear CUDA cache AFTER checkpoint save so serialization
             # temporaries are also freed.
