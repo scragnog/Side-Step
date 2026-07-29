@@ -247,6 +247,12 @@ const WorkspaceSetup = (() => {
       const p = {};
       Object.entries(raw).forEach(([k, v]) => { p[_aliases[k] || k] = v; });
       if (typeof raw.gradient_checkpointing === "boolean") p.gradient_checkpointing_ratio = raw.gradient_checkpointing ? "1.0" : "0.0";
+
+      // Suppress smart-behavior LR overrides while we apply preset values.
+      // The optimizer change handler rewrites LR to "known" values (e.g.
+      // Rose→0.01, Automagic→1e-6) which clobbers the preset's LR.
+      window.__sidestep_preset_applying = true;
+
       const _touched = [];
       Object.entries(valMap).forEach(([k, id]) => { if (p[k] != null) { const el = $(id); if (el) { el.value = p[k]; _touched.push(el); } } });
       Object.entries(chkMap).forEach(([k, id]) => { if (p[k] != null) { const el = $(id); if (el) { el.checked = !!p[k]; _touched.push(el); } } });
@@ -262,6 +268,14 @@ const WorkspaceSetup = (() => {
         el.dispatchEvent(new Event("change", { bubbles: true }));
         if (el.type !== "checkbox" && el.tagName !== "SELECT") el.dispatchEvent(new Event("input", { bubbles: true }));
       });
+
+      // Re-apply LR after all change events have fired (reactivity may
+      // have clobbered it via the optimizer smart handler).
+      const lrEl = $("full-lr");
+      if (lrEl && p.lr != null) lrEl.value = p.lr;
+
+      window.__sidestep_preset_applying = false;
+
       // Sync projection chip checkboxes to match hidden input values
       _syncProjChipsFromHidden();
       $("preset-browser-modal")?.classList.remove("open", "active");

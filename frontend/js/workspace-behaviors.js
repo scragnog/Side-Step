@@ -489,6 +489,12 @@ const WorkspaceBehaviors = (() => {
     if (optimizerSel && lrInput) {
       let prevLR = lrInput.value;
       optimizerSel.addEventListener("change", () => {
+        // Don't override LR during preset application — the preset
+        // specifies an exact LR that must not be clobbered.
+        if (window.__sidestep_preset_applying) {
+          prevLR = lrInput.value;
+          return;
+        }
         if (optimizerSel.value === "prodigy") {
           if (lrInput.value === prevLR || lrInput.value === "1e-4") {
             lrInput.value = "1.0";
@@ -516,6 +522,7 @@ const WorkspaceBehaviors = (() => {
 
     $("full-dataset-dir")?.addEventListener("change", () => {
       setTimeout(() => {
+        if (window.__sidestep_preset_applying) return;
         const ppStatus = $("full-pp-status");
         if (!ppStatus) return;
         const hasPP = ppStatus.textContent.includes("detected");
