@@ -1700,10 +1700,11 @@
           <div>
             <!-- Controls (toggled, never destroyed) -->
             <div id="monitor-controls" style="display: flex; gap: var(--space-md); margin-bottom: var(--space-lg);">
+              <button class="btn btn--warning" id="btn-pause">&#x23F8; Pause</button>
               <button class="btn btn--danger" id="btn-stop">Stop Training</button>
               <button class="btn btn--danger" id="btn-stop-all" style="display:none;">Stop All</button>
               <button class="btn" id="btn-open-output">Open Output Dir</button>
-              <span style="color: var(--muted); font-size: var(--font-size-sm); align-self: center;">Stop skips current run. Stop All cancels the queue.</span>
+              <span style="color: var(--muted); font-size: var(--font-size-sm); align-self: center;">Pause saves &amp; frees VRAM. Stop skips current run. Stop All cancels the queue.</span>
             </div>
 
             <!-- Completion banner (shown after training ends, hidden on new run) -->

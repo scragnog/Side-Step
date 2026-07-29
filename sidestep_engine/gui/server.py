@@ -712,6 +712,11 @@ def create_app(token: str | None = None, port: int = 8770) -> FastAPI:
         result = tm.stop_training()
         return JSONResponse(result)
 
+    @app.post("/api/train/pause")
+    async def pause_training():
+        result = tm.pause_training()
+        return JSONResponse(result)
+
     # ======================================================================
     # Task control (preprocess, PP++, captions)
     # ======================================================================

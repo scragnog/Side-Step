@@ -1356,6 +1356,8 @@ const Training = (() => {
 
       if (msg.status === 'done' && !msg.oom) {
         _finalize('complete');
+      } else if (msg.status === 'paused') {
+        _finalize('paused');
       } else if (msg.status === 'failed' || msg.oom) {
         if (!_stopRequested && !_lastFailureMsg) {
           _lastFailureMsg = 'Process exited with code ' + (msg.exit_code ?? '?');
@@ -1530,7 +1532,10 @@ const Training = (() => {
     // Update queue entry status
     const runningEntry = _queue.find(e => e.status === 'running');
     if (runningEntry) {
-      runningEntry.status = finalOutcome === 'complete' ? 'done' : finalOutcome === 'stopped' ? 'stopped' : 'failed';
+      if (finalOutcome === 'complete') runningEntry.status = 'done';
+      else if (finalOutcome === 'paused') runningEntry.status = 'paused';
+      else if (finalOutcome === 'stopped') runningEntry.status = 'stopped';
+      else runningEntry.status = 'failed';
     }
 
     if (typeof AppState !== 'undefined') {
@@ -1542,6 +1547,15 @@ const Training = (() => {
     }
 
     _refreshHistory();
+
+    // Paused: freeze queue — do NOT advance to next pending run
+    if (finalOutcome === 'paused') {
+      if (wasRunning) _showCompletionState('paused');
+      _renderQueue();
+      _syncStartButtons();
+      _stopRequested = false;
+      return;
+    }
 
     // Check if there are more queued runs
     const hasPending = _queue.some(e => e.status === 'pending');
@@ -1592,8 +1606,8 @@ const Training = (() => {
   }
 
   function _runNext() {
-    // Prune finished entries to prevent unbounded growth
-    _queue = _queue.filter(e => e.status === 'pending' || e.status === 'running');
+    // Prune finished entries to prevent unbounded growth (keep paused)
+    _queue = _queue.filter(e => e.status === 'pending' || e.status === 'running' || e.status === 'paused');
     const next = _queue.find(e => e.status === 'pending');
     if (!next) {
       _syncStartButtons();
@@ -1738,9 +1752,11 @@ const Training = (() => {
     // When both crop modes are disabled, chunk_decay_every is irrelevant — strip it too
     if (!_config.chunk_duration && !_config.max_latent_length && _config.chunk_decay_every !== undefined && (Number(_config.chunk_decay_every) === 0 || _config.chunk_decay_every === '0')) delete _config.chunk_decay_every;
 
-    // Reset stop button state from previous run
+    // Reset stop/pause button state from previous run
     const stopBtn = $('btn-stop');
     if (stopBtn) { stopBtn.textContent = 'Stop Training'; stopBtn.disabled = false; }
+    const pauseBtn = $('btn-pause');
+    if (pauseBtn) { pauseBtn.textContent = '\u23F8 Pause'; pauseBtn.disabled = false; }
 
     // Clear chart SVG from previous run
     ['monitor-loss-line', 'monitor-loss-raw', 'monitor-ma-line', 'monitor-lr-line'].forEach(id => {
@@ -1799,6 +1815,8 @@ const Training = (() => {
     _stopRequested = true;
     const stopBtn = $('btn-stop');
     if (stopBtn) { stopBtn.textContent = 'Stopping\u2026'; stopBtn.disabled = true; }
+    const pauseBtn = $('btn-pause');
+    if (pauseBtn) { pauseBtn.disabled = true; }
     _addLog('[info]  Stop requested — waiting for trainer to exit...', 'info');
     try {
       await API.stopTraining();
@@ -1806,16 +1824,60 @@ const Training = (() => {
     // Finalization happens when the subprocess exits and WS sends status
   }
 
+  async function pause() {
+    if (!_running) return;
+    const pauseBtn = $('btn-pause');
+    if (pauseBtn) { pauseBtn.textContent = 'Pausing\u2026'; pauseBtn.disabled = true; }
+    const stopBtn = $('btn-stop');
+    if (stopBtn) { stopBtn.disabled = true; }
+    _addLog('[info]  Pause requested — saving checkpoint at next epoch boundary...', 'info');
+    try {
+      const result = await API.pauseTraining();
+      if (result.error) {
+        _addLog('[warn]  Pause failed: ' + result.error, 'warn');
+        if (pauseBtn) { pauseBtn.textContent = '\u23F8 Pause'; pauseBtn.disabled = false; }
+        if (stopBtn) { stopBtn.disabled = false; }
+      }
+    } catch (err) {
+      _addLog('[warn]  Pause request failed: ' + err.message, 'warn');
+      if (pauseBtn) { pauseBtn.textContent = '\u23F8 Pause'; pauseBtn.disabled = false; }
+      if (stopBtn) { stopBtn.disabled = false; }
+    }
+    // Finalization happens when subprocess saves checkpoint and exits with code 42
+  }
+
+  function resumePaused() {
+    const pausedEntry = _queue.find(e => e.status === 'paused');
+    if (!pausedEntry) {
+      if (typeof showToast === 'function') showToast('No paused run to resume', 'warn');
+      return;
+    }
+    // Point resume_from to the paused checkpoint
+    const outputDir = pausedEntry.config.output_dir || '';
+    pausedEntry.config.resume_from = outputDir + '/paused';
+    pausedEntry.status = 'pending';
+    _renderQueue();
+    _syncStartButtons();
+    if (typeof showToast === 'function') {
+      showToast('Resuming: ' + (pausedEntry.config.run_name || 'training'), 'info');
+    }
+    // Hide completion banner and re-show monitor
+    const completion = $('monitor-completion');
+    if (completion) { completion.style.display = 'none'; }
+    _runNext();
+  }
+
   function _showCompletionState(outcome) {
     const elapsed = (Date.now() - _startTime) / 1000;
     const done = outcome === 'complete';
     const failed = outcome === 'failed';
+    const paused = outcome === 'paused';
     const controls = $('monitor-controls'), completion = $('monitor-completion');
     if (controls) controls.style.display = 'none';
     if (completion) {
-      const c = done ? 'var(--success)' : failed ? 'var(--error)' : 'var(--warning)';
-      const icon = done ? '[ok]' : failed ? '[x]' : '[!]';
-      const label = done ? 'Training Complete' : failed ? 'Training Failed' : 'Training Stopped';
+      const c = done ? 'var(--success)' : failed ? 'var(--error)' : paused ? 'var(--primary)' : 'var(--warning)';
+      const icon = done ? '[ok]' : failed ? '[x]' : paused ? '[||]' : '[!]';
+      const label = done ? 'Training Complete' : failed ? 'Training Failed' : paused ? 'Training Paused' : 'Training Stopped';
       const best = _bestLoss < Infinity ? _bestLoss.toFixed(4) : '--';
       const reason = failed && _lastFailureMsg
         ? '<div class="u-text-error" style="margin-top:var(--space-xs);">Reason: ' + _esc(_lastFailureMsg) + '</div>'
@@ -1830,7 +1892,8 @@ const Training = (() => {
         '<button class="btn btn--primary" id="btn-new-run">New Run</button>' +
         '<button class="btn" id="btn-completed-open-output">Open Output Dir</button>' +
         (done ? '<button class="btn" id="btn-completed-export-comfyui">Export ComfyUI</button>' : '') +
-        (!done ? '<button class="btn btn--success" id="btn-completed-resume">Resume from History</button>' : '') +
+        (paused ? '<button class="btn btn--success" id="btn-completed-resume-paused">\u25B6 Resume Training</button>' : '') +
+        (!done && !paused ? '<button class="btn btn--success" id="btn-completed-resume">Resume from History</button>' : '') +
         '</div></div>';
       completion.style.display = 'block';
       $('btn-new-run')?.addEventListener('click', () => { if (typeof switchMode === 'function') switchMode('ez'); });
@@ -1855,6 +1918,7 @@ const Training = (() => {
           if (btn) { btn.disabled = false; btn.textContent = 'Export ComfyUI'; }
         }
       });
+      $('btn-completed-resume-paused')?.addEventListener('click', () => resumePaused());
       $('btn-completed-resume')?.addEventListener('click', () => {
         if (typeof switchMode === 'function') switchMode('lab');
         _refreshHistory();
@@ -1868,10 +1932,10 @@ const Training = (() => {
     }
     const consoleLine = $('console-line');
     if (consoleLine) {
-      const statusText = done ? 'Training complete' : failed ? 'Training failed' : 'Training stopped';
+      const statusText = done ? 'Training complete' : failed ? 'Training failed' : paused ? 'Training paused — VRAM freed' : 'Training stopped';
       consoleLine.textContent = statusText +
         ' — ' + _epoch + ' epochs, best: ' + (_bestLoss < Infinity ? _bestLoss.toFixed(4) : '--');
-      consoleLine.className = 'console__line console__line--' + (done ? 'epoch' : failed ? 'fail' : 'warn');
+      consoleLine.className = 'console__line console__line--' + (done ? 'epoch' : failed ? 'fail' : paused ? 'info' : 'warn');
     }
   }
 
@@ -2074,8 +2138,9 @@ const Training = (() => {
   function init() {
     $('btn-clear-training-queue')?.addEventListener('click', () => clearQueue());
     $('btn-stop-all')?.addEventListener('click', () => stopAll());
+    $('btn-pause')?.addEventListener('click', () => pause());
   }
 
-  return { init, start, enqueue, stop, stopAll, isRunning, setViewRange, zoomReset, setSmoothing, setChartMode, getChartView, getChartMode, getChartOpts, getDataAtIndex, getSnap, setSnap, collapseExpanded, demoMiniCharts, demoLive, getQueue, queueLength, removeFromQueue, clearQueue };
+  return { init, start, enqueue, stop, stopAll, pause, resumePaused, isRunning, setViewRange, zoomReset, setSmoothing, setChartMode, getChartView, getChartMode, getChartOpts, getDataAtIndex, getSnap, setSnap, collapseExpanded, demoMiniCharts, demoLive, getQueue, queueLength, removeFromQueue, clearQueue };
 
 })();
