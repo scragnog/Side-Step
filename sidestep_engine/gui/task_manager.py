@@ -823,6 +823,9 @@ class TaskManager:
                         )
 
                         key = str(config.get("gemini_key") or config.get("api_key") or "").strip()
+                        if not key or _is_masked_secret(key):
+                            from sidestep_engine.settings import get_gemini_api_key
+                            key = get_gemini_api_key() or ""
                         model = config.get("gemini_model") or config.get("model")
                         if not key:
                             return None
@@ -853,6 +856,9 @@ class TaskManager:
                         )
 
                         key = str(config.get("openai_key") or config.get("api_key") or "").strip()
+                        if not key or _is_masked_secret(key):
+                            from sidestep_engine.settings import get_openai_api_key
+                            key = get_openai_api_key() or ""
                         model = config.get("openai_model") or config.get("model")
                         base_url = config.get("openai_base") or config.get("base_url")
                         if not key:
