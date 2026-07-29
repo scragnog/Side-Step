@@ -114,6 +114,7 @@ const APICli = (() => {
     if (config.early_stop && config.early_stop !== '0') add('--early-stop-patience', config.early_stop);
     if (config.target_loss && config.target_loss !== '0') {
       add('--target-loss', config.target_loss);
+      addBool('--target-loss-auto-stop', config.target_loss_auto_stop);
       addNonDefault('--target-loss-floor', config.target_loss_floor, '0.01');
       addNonDefault('--target-loss-warmup', config.target_loss_warmup, '50');
       addNonDefault('--target-loss-smoothing', config.target_loss_smoothing, '0.98');

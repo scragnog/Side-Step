@@ -27,6 +27,7 @@ from sidestep_engine.training_defaults import (
     DEFAULT_EMA_DECAY,
     DEFAULT_EMA_START_STEP,
     DEFAULT_TARGET_LOSS,
+    DEFAULT_TARGET_LOSS_AUTO_STOP,
     DEFAULT_TARGET_LOSS_FLOOR,
     DEFAULT_TARGET_LOSS_WARMUP,
     DEFAULT_TARGET_LOSS_SMOOTHING,
@@ -312,6 +313,9 @@ def build_train_namespace(a: dict, mode: str = "train") -> argparse.Namespace:
         save_best_after=a.get("save_best_after", DEFAULT_SAVE_BEST_AFTER),
         early_stop_patience=a.get("early_stop_patience", DEFAULT_EARLY_STOP_PATIENCE),
         target_loss=a.get("target_loss", DEFAULT_TARGET_LOSS),
+        # Must be passed through here — config_factory falls back to False
+        # when absent, silently disabling auto-stop for wizard/preset runs.
+        target_loss_auto_stop=a.get("target_loss_auto_stop", DEFAULT_TARGET_LOSS_AUTO_STOP),
         target_loss_floor=a.get("target_loss_floor", DEFAULT_TARGET_LOSS_FLOOR),
         target_loss_warmup=a.get("target_loss_warmup", DEFAULT_TARGET_LOSS_WARMUP),
         target_loss_smoothing=a.get("target_loss_smoothing", DEFAULT_TARGET_LOSS_SMOOTHING),
