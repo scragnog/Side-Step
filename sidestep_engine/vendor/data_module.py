@@ -412,6 +412,8 @@ class PreprocessedTensorDataset(Dataset):
                 attention_mask = attention_mask[start:end]
                 context_latents = context_latents[start:end]
 
+        conditioning_type = "genre" if use_genre else "caption"
+
         return {
             "target_latents": target_latents,           # [T', 64]
             "attention_mask": attention_mask,             # [T']
@@ -419,6 +421,7 @@ class PreprocessedTensorDataset(Dataset):
             "encoder_attention_mask": encoder_attention_mask,  # [L]
             "context_latents": context_latents,          # [T', 65]
             "metadata": metadata,
+            "conditioning_type": conditioning_type,
         }
 
 
@@ -474,6 +477,14 @@ def collate_preprocessed_batch(batch: List[Dict]) -> Dict[str, torch.Tensor]:
             eam = torch.cat([eam, pad], dim=0)
         encoder_attention_masks.append(eam)
 
+    # Gather per-sample conditioning info for monitor feedback
+    conditioning_info = []
+    for s in batch:
+        meta = s.get("metadata", {})
+        fname = meta.get("filename", "?")
+        ctype = s.get("conditioning_type", "caption")
+        conditioning_info.append({"name": fname, "type": ctype})
+
     return {
         "target_latents": torch.stack(target_latents),  # [B, T, 64]
         "attention_mask": torch.stack(attention_masks),  # [B, T]
@@ -481,6 +492,7 @@ def collate_preprocessed_batch(batch: List[Dict]) -> Dict[str, torch.Tensor]:
         "encoder_attention_mask": torch.stack(encoder_attention_masks),  # [B, L]
         "context_latents": torch.stack(context_latents),  # [B, T, 65]
         "metadata": [s["metadata"] for s in batch],
+        "conditioning_info": conditioning_info,
     }
 
 
