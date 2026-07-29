@@ -202,6 +202,7 @@ class FixedLoRATrainer:
                 max_latent_length=getattr(cfg, "max_latent_length", None),
                 chunk_decay_every=getattr(cfg, "chunk_decay_every", 10),
                 dataset_repeats=getattr(cfg, "dataset_repeats", 1),
+                genre_ratio=getattr(cfg, "genre_ratio", -1),
             )
             data_module.setup("fit")
 
