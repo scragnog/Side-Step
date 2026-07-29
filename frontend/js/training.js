@@ -9,6 +9,7 @@ const Training = (() => {
   let _queue = [];  // { id, config, status: 'pending'|'running'|'done'|'failed'|'stopped' }
   let _queueIdCounter = 0;
   let _step = 0, _epoch = 0, _maxEpochs = 100, _stepsPerEpoch = 0, _stepInEpoch = 0;
+  let _resumeStartEpoch = 0, _resumeStartStep = 0;  // non-zero when resuming from checkpoint
   let _loss = 0, _bestLoss = Infinity, _bestEpoch = 0, _lr = 0;
   let _lossHistory = [], _lrHistory = [];
   let _epochLossHistory = [], _epochLrHistory = [];
@@ -126,12 +127,13 @@ const Training = (() => {
     const ma5 = _calcMA(5);
     setText('monitor-ma5', ma5 !== null ? ma5.toFixed(4) : '--');
 
-    // Timing
+    // Timing — use session-relative steps for accurate speed/ETA on resumed runs
     const elapsed = (Date.now() - _startTime) / 1000;
+    const sessionSteps = Math.max(0, _step - _resumeStartStep);
     setText('monitor-elapsed', _fmtDuration(elapsed));
-    setText('monitor-step-time', _step > 0 ? (elapsed / _step).toFixed(2) + 's' : '--');
+    setText('monitor-step-time', sessionSteps > 0 ? (elapsed / sessionSteps).toFixed(2) + 's' : '--');
     setText('monitor-epoch-time', _lastEpochDuration > 0 ? _lastEpochDuration.toFixed(1) + 's' : '--');
-    setText('monitor-sps', _step > 0 ? ((_step / elapsed) || 0).toFixed(1) + ' steps/s' : '--');
+    setText('monitor-sps', sessionSteps > 0 ? ((sessionSteps / elapsed) || 0).toFixed(1) + ' steps/s' : '--');
 
     // ETA
     const remainingEpochs = _maxEpochs - _epoch;
@@ -178,7 +180,9 @@ const Training = (() => {
   function _updateLossChart() {
     const { loss, lr } = _getChartData();
     if (typeof TrainingChart !== "undefined") {
-      TrainingChart.render({ fullLoss: loss, fullLr: lr, viewXMin: _viewXMin, viewXMax: _viewXMax, smoothingWeight: _smoothingWeight });
+      // For resumed runs, offset X-axis labels so chart shows actual epoch/step numbers
+      const xOff = _chartMode === 'epoch' ? _resumeStartEpoch : _resumeStartStep;
+      TrainingChart.render({ fullLoss: loss, fullLr: lr, viewXMin: _viewXMin, viewXMax: _viewXMax, smoothingWeight: _smoothingWeight, xOffset: xOff });
     }
     // Hide hover dots — Y range may have changed, dots would be stale
     const dotsG = $('monitor-hover-dots');
@@ -1410,6 +1414,13 @@ const Training = (() => {
       const kind = msg.kind || 'step';
 
       if (kind === 'step') {
+        // Capture resume offsets from the very first progress message
+        if (_resumeStartEpoch === 0 && msg.epoch > 1) {
+          _resumeStartEpoch = (msg.epoch - 1) || 0;  // epoch is 1-indexed in progress
+        }
+        if (_lossHistory.length === 0 && _resumeStartEpoch > 0 && msg.step > 0) {
+          _resumeStartStep = _resumeStartStep || msg.step;
+        }
         _step = msg.step || _step;
         _loss = msg.loss ?? _loss;
         _lr = msg.lr ?? _lr;
@@ -1697,6 +1708,7 @@ const Training = (() => {
     _config = config || {};
     _running = true;
     _step = 0; _epoch = 0; _stepInEpoch = 0;
+    _resumeStartEpoch = 0; _resumeStartStep = 0;
     _loss = 0; _bestLoss = Infinity; _bestEpoch = 0; _lr = 0;
     _lossHistory = []; _lrHistory = [];
     _epochLossHistory = []; _epochLrHistory = [];
@@ -1709,6 +1721,14 @@ const Training = (() => {
     _maxEpochs = parseInt(_config.epochs) || 100;
     _stepsPerEpoch = parseInt(_config.steps_per_epoch) || 0;
     _startTime = Date.now(); _epochStartTime = Date.now(); _lastEpochDuration = 0;
+
+    // Detect resume: extract starting epoch from checkpoint path (e.g. .../epoch_100)
+    const resumePath = _config.resume_from || '';
+    const epochMatch = resumePath.match(/epoch_(\d+)/);
+    if (epochMatch) {
+      _resumeStartEpoch = parseInt(epochMatch[1]) || 0;
+      _epoch = _resumeStartEpoch;  // show correct epoch immediately
+    }
 
     // Strip frontend-only keys and zero-means-off fields before sending to backend
     delete _config.steps_per_epoch;
