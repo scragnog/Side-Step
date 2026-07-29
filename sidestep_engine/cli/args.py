@@ -513,6 +513,11 @@ def _add_common_training_args(parser: argparse.ArgumentParser) -> None:
     g_cfg = parser.add_argument_group("Config file")
     g_cfg.add_argument("--config", type=str, default=None,
                        help="Load training config from JSON file. CLI args override JSON values.")
+    g_cfg.add_argument("--preset", type=str, default=None,
+                       help="Load a wizard/GUI preset by name (searched in ./presets/, "
+                            "~/.config/sidestep/presets/, then built-ins). Uses the same "
+                            "field translation as the wizard, so presets saved from the "
+                            "wizard work headless. CLI args override preset values.")
 
     # -- Checkpointing -------------------------------------------------------
     g_ckpt = parser.add_argument_group("Checkpointing")
