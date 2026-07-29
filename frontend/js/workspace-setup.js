@@ -213,6 +213,7 @@ const WorkspaceSetup = (() => {
     const chkMap = {
       target_mlp:"full-target-mlp", offload_encoder:"full-offload-encoder",
       channel_balance:"full-channel-balance", vae_channel_prior:"full-vae-channel-prior", legacy_loss:"full-legacy-loss",
+      dynamic_channel_balance:"full-dynamic-channel-balance",
       save_best:"full-save-best", pin_memory:"full-pin-memory",
       persistent_workers:"full-persistent-workers",
       lokr_decompose_both:"full-lokr-decompose-both", lokr_use_tucker:"full-lokr-use-tucker",

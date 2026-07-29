@@ -76,6 +76,7 @@ from sidestep_engine.training_defaults import (
     DEFAULT_LATENT_NOISE,
     DEFAULT_T_BIAS,
     DEFAULT_LEGACY_LOSS,
+    DEFAULT_DYNAMIC_CHANNEL_BALANCE,
     DEFAULT_STRICT_RESUME,
     DEFAULT_TARGET_MLP,
     DEFAULT_TIMESTEP_MODE,
@@ -343,6 +344,9 @@ def build_train_namespace(a: dict, mode: str = "train") -> argparse.Namespace:
         loss_fn=a.get("loss_fn", DEFAULT_LOSS_FN),
         huber_delta=a.get("huber_delta", DEFAULT_HUBER_DELTA),
         channel_balance=a.get("channel_balance", DEFAULT_CHANNEL_BALANCE),
+        # Must be passed through here — config_factory falls back to the
+        # default when absent, silently ignoring wizard/preset values.
+        dynamic_channel_balance=a.get("dynamic_channel_balance", DEFAULT_DYNAMIC_CHANNEL_BALANCE),
         vae_channel_prior=a.get("vae_channel_prior", DEFAULT_VAE_CHANNEL_PRIOR),
         latent_noise=a.get("latent_noise", DEFAULT_LATENT_NOISE),
         t_bias=a.get("t_bias", DEFAULT_T_BIAS),
