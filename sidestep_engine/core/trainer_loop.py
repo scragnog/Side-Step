@@ -747,6 +747,38 @@ def run_basic_training_loop(
             )
             break
 
+        # Target loss auto-stop (for queued/autonomous runs)
+        _auto_stop = getattr(cfg, "target_loss_auto_stop", False)
+        if (_auto_stop and _target_loss > 0
+                and best_tracking_active
+                and len(recent_losses) >= loss_window_size
+                and smoothed_loss < _target_loss):
+            # Ensure the best checkpoint is saved before we exit
+            if not is_new_best:
+                best_path = str(output_dir / "best")
+                module.model.decoder.eval()
+                if _ema is not None:
+                    _ema.apply()
+                try:
+                    save_adapter_flat(trainer, best_path)
+                finally:
+                    if _ema is not None:
+                        _ema.restore()
+                module.model.decoder.train()
+            yield TrainingUpdate(
+                step=global_step, loss=avg_epoch_loss,
+                msg=(
+                    f"[OK] Target loss reached! MA5 {smoothed_loss:.4f} < target {_target_loss} "
+                    f"at epoch {epoch + 1}. Best saved (MA5: {best_loss:.4f} @ epoch {best_epoch}). "
+                    f"Training auto-stopped."
+                ),
+                kind="info", epoch=epoch + 1, max_epochs=cfg.max_epochs,
+            )
+            _pw.write_event(kind="target_loss_stop", step=global_step,
+                            epoch=epoch + 1, loss=avg_epoch_loss,
+                            best_loss=best_loss, best_epoch=best_epoch)
+            break
+
         # Periodic checkpoint (eval mode for consistent saved weights)
         if (epoch + 1) % cfg.save_every_n_epochs == 0:
             ckpt_dir = str(output_dir / "checkpoints" / f"epoch_{epoch + 1}")

@@ -26,6 +26,7 @@ from sidestep_engine.training_defaults import (
     DEFAULT_EMA_DECAY,
     DEFAULT_EMA_START_STEP,
     DEFAULT_TARGET_LOSS,
+    DEFAULT_TARGET_LOSS_AUTO_STOP,
     DEFAULT_TARGET_LOSS_FLOOR,
     DEFAULT_TARGET_LOSS_WARMUP,
     DEFAULT_TARGET_LOSS_SMOOTHING,
@@ -534,7 +535,12 @@ def _add_common_training_args(parser: argparse.ArgumentParser) -> None:
                          dest="target_loss_warmup",
                          help=f"Min steps before cruise control engages "
                               f"(default: {DEFAULT_TARGET_LOSS_WARMUP})")
-    g_ckpt.add_argument("--target-loss-smoothing", type=float, default=DEFAULT_TARGET_LOSS_SMOOTHING,
+    g_ckpt.add_argument('--target-loss-auto-stop', action=argparse.BooleanOptionalAction,
+                         default=DEFAULT_TARGET_LOSS_AUTO_STOP,
+                         dest="target_loss_auto_stop",
+                         help="Auto-stop training when MA5 loss drops below target_loss. "
+                              f"For queued/autonomous runs (default: {DEFAULT_TARGET_LOSS_AUTO_STOP})")
+    g_ckpt.add_argument('--target-loss-smoothing', type=float, default=DEFAULT_TARGET_LOSS_SMOOTHING,
                          dest="target_loss_smoothing",
                          help=f"EMA beta for loss smoothing in cruise control; higher=smoother "
                               f"(default: {DEFAULT_TARGET_LOSS_SMOOTHING})")

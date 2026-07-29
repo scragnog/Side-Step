@@ -386,6 +386,13 @@ class TrainingConfigV2(TrainingConfig):
     """Target loss for cruise control.  When smoothed loss reaches this value,
     LR is progressively damped to hold steady.  0 = disabled."""
 
+    target_loss_auto_stop: bool = False
+    """When True and ``target_loss > 0``, training automatically stops
+    (saves best checkpoint and terminates) once the epoch-level MA5
+    smoothed loss drops below ``target_loss``.  Ideal for queued/
+    autonomous runs where you want to free the GPU as soon as the
+    target quality is reached."""
+
     target_loss_floor: float = 0.01
     """Minimum LR multiplier when target loss cruise control is active.
     0.01 = LR can drop to 1% of scheduled value at the target loss."""
@@ -730,6 +737,7 @@ class TrainingConfigV2(TrainingConfig):
                 "save_best_after": self.save_best_after,
                 "early_stop_patience": self.early_stop_patience,
                 "target_loss": self.target_loss,
+                "target_loss_auto_stop": self.target_loss_auto_stop,
                 "target_loss_floor": self.target_loss_floor,
                 "target_loss_warmup": self.target_loss_warmup,
                 "target_loss_smoothing": self.target_loss_smoothing,

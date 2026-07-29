@@ -107,6 +107,7 @@ DEFAULT_SAVE_BEST_AFTER: int = 200
 DEFAULT_EARLY_STOP_PATIENCE: int = 0
 DEFAULT_STRICT_RESUME: bool = True
 DEFAULT_TARGET_LOSS: float = 0.0
+DEFAULT_TARGET_LOSS_AUTO_STOP: bool = False
 DEFAULT_TARGET_LOSS_FLOOR: float = 0.01
 DEFAULT_TARGET_LOSS_WARMUP: int = 50
 DEFAULT_TARGET_LOSS_SMOOTHING: float = 0.98
@@ -239,6 +240,7 @@ TRAINING_DEFAULTS: dict = {
     "early_stop_patience": DEFAULT_EARLY_STOP_PATIENCE,
     "strict_resume": DEFAULT_STRICT_RESUME,
     "target_loss": DEFAULT_TARGET_LOSS,
+    "target_loss_auto_stop": DEFAULT_TARGET_LOSS_AUTO_STOP,
     "target_loss_floor": DEFAULT_TARGET_LOSS_FLOOR,
     "target_loss_warmup": DEFAULT_TARGET_LOSS_WARMUP,
     "target_loss_smoothing": DEFAULT_TARGET_LOSS_SMOOTHING,
@@ -295,6 +297,7 @@ GUI_KEY_MAP: dict = {
     "scheduler": "scheduler_type",
     "early_stop": "early_stop_patience",
     "target-loss": "target_loss",
+    "target-loss-auto-stop": "target_loss_auto_stop",
     "target-loss-floor": "target_loss_floor",
     "target-loss-warmup": "target_loss_warmup",
     "target-loss-smoothing": "target_loss_smoothing",
@@ -357,6 +360,7 @@ GUI_FIELD_MAP: dict = {
     "save_best_after": "full-save-best-after",
     "early_stop_patience": "full-early-stop",
     "target_loss": "full-target-loss",
+    "target_loss_auto_stop": "full-target-loss-auto-stop",
     "target_loss_floor": "full-target-loss-floor",
     "target_loss_warmup": "full-target-loss-warmup",
     "target_loss_smoothing": "full-target-loss-smoothing",
